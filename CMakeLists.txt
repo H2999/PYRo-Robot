@@ -10,7 +10,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/PYRo/cmake/config/pyro_robot_id_config.cmake
 # ==============================================================================
 # 1. 编译器与工具链配置 (已由 gcc-arm-none-eabi.cmake 处理)
 # ==============================================================================
-include(cmake/gcc-arm-none-eabi.cmake)
+include(CubeMX/cmake/gcc-arm-none-eabi.cmake)
 
 # ==============================================================================
 # 2. 项目定义
@@ -64,7 +64,6 @@ target_include_directories(dsppp_lib INTERFACE
 # 5. 源文件配置 (按分类排序)
 # ==============================================================================
 add_executable(${CMAKE_PROJECT_NAME}
-        # --- Core ---
         PYRo/Core/ETL/map.cpp
         PYRo/Core/Lock/pyro_mutex.cpp
         PYRo/Core/Lock/pyro_rw_lock.cpp
@@ -77,6 +76,7 @@ add_executable(${CMAKE_PROJECT_NAME}
         PYRo/Peripheral/CAN/pyro_can_drv.cpp
         PYRo/Peripheral/DWT/pyro_dwt_drv.cpp
         PYRo/Peripheral/UART/pyro_uart_drv.cpp
+        PYRo/Peripheral/UART/pyro_bsp_uart.cpp
 
         # --- Algorithm ---
         PYRo/Algorithm/Kinematics/pyro_kin_hybrid.cpp
@@ -88,7 +88,6 @@ add_executable(${CMAKE_PROJECT_NAME}
         PYRo/Algorithm/EKF/QuaternionEKF.cpp
         PYRo/Algorithm/KF/kalman_filter.cpp
         PYRo/Algorithm/Common/pyro_algo_common.cpp
-        PYRo/Algorithm/KF/pyro_kalman_filter.cpp
 
         # --- Component ---
         PYRo/Component/CRC/PYRo_crc.cpp
@@ -99,26 +98,11 @@ add_executable(${CMAKE_PROJECT_NAME}
         PYRo/Component/Powermeter/pyro_powermeter.cpp
         PYRo/Component/RC/pyro_dr16_rc_drv.cpp
         PYRo/Component/RC/pyro_rc_base_drv.cpp
-        PYRo/Component/RC/pyro_rc_hub.cpp
         PYRo/Component/RC/pyro_vt03_rc_drv.cpp
         PYRo/Component/Referee/fifo.c
         PYRo/Component/Referee/pyro_referee.cpp
         PYRo/Component/INS/pyro_ins.cpp
         PYRo/Component/Supercap/pyro_supercap_drv.cpp
-
-
-        # --- Application ---
-
-        ## --- Demo ---
-        PYRo/Application/Demo/demo_task.cpp
-        PYRo/Application/Demo/pyro_motor_demo.cpp
-        PYRo/Application/Demo/pyro_rc_demo.cpp
-        PYRo/Application/Demo/pyro_shoot_demo.cpp
-
-        ## --- Mission ---
-        PYRo/Application/Mission/pyro_init_thread.cpp
-        PYRo/Application/Mission/pyro_mission_planer.cpp
-
         # --- Debug ---
         PYRo/Debug/Debug_task.cpp
         PYRo/Debug/JCOM/pyro_jcom.cpp
@@ -128,11 +112,13 @@ add_executable(${CMAKE_PROJECT_NAME}
         # --- Communication ---
         PYRo/Communication/pyro_com_cantx.cpp
         PYRo/Communication/pyro_com_canrx.cpp
+        PYRo/Communication/pyro_uart_comm.cpp
 
 
         # --- Device ---
         PYRo/Device/BMI088/BMI088_driver.cpp
         PYRo/Device/BMI088/BMI088_middleware.cpp
+        PYRo/Component/Referee/UI/pyro_ui_drv.cpp
 
 
 )
@@ -186,13 +172,13 @@ target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
         PYRo/Component/Powermeter
         PYRo/Component/RC
         PYRo/Component/Referee
+        PYRo/Component/Referee/UI
         PYRo/Component/Shoot
         PYRo/Component/Supercap
 
         # --- Module ---
         PYRo/Module
 
-            # PYRo/Module/Chassis/Wheel_Legged
         # --- Communication ---
         PYRo/Communication
 
