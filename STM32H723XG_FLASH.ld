@@ -65,7 +65,6 @@ FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 1024K
 
 /* Highest address of the user mode stack */
 _estack = ORIGIN(DTCMRAM) + LENGTH(DTCMRAM);    /* end of RAM */
-_sstack = _estack - _Min_Stack_Size;
 /* Generate a link error if heap and stack don't fit into RAM */
 _Min_Heap_Size = 0x200;      /* required amount of heap  */
 _Min_Stack_Size = 0x400; /* required amount of stack */
@@ -241,6 +240,12 @@ SECTIONS
     . = ALIGN(8);
   } >DTCMRAM
 
+  .dma_heap :
+  {
+    . = ALIGN(4);
+    KEEP(*(.dma_heap))
+    . = ALIGN(4);
+  } >RAM_D2
 
 
   /* Remove information from the standard libraries */
