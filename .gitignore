@@ -24,11 +24,10 @@ JLinkSetting.ini
 *.sct
 *.map
 *.uvguix.*
-.gitmodules
-
 
 build/
 /cmake-build-debug-stm32
+.cache/
 .idea
 .vscode
 !*/CMakeLists.txt
