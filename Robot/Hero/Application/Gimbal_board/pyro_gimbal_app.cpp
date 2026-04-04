@@ -44,6 +44,10 @@ extern "C"
                 chassis_dr162cmd();
                 gimbal_dr162cmd();
             }
+            else
+            {
+                screw_gimbal_cmd_ptr->mode = pyro::cmd_base_t::mode_t::PASSIVE;
+            }
             screw_gimbal_ptr->set_command(*screw_gimbal_cmd_ptr);
             vTaskDelay(1);
         }
@@ -125,22 +129,24 @@ void chassis_dr162cmd()
     wz     = 0;
     active = true;
 
-    if (pyro::sw_pos_t::DOWN != vrc.switches.left.current_pos)
-    {
-        track_en = true;
-        if (pyro::sw_pos_t::MID == vrc.switches.left.current_pos)
-        {
-            leg_retract = true;
-        }
-        else
-        {
-            leg_retract = false;
-        }
-    }
-    else
-    {
-        track_en = true;
-    }
+    // if (pyro::sw_pos_t::DOWN != vrc.switches.left.current_pos)
+    // {
+    //     track_en = true;
+    //     if (pyro::sw_pos_t::MID == vrc.switches.left.current_pos)
+    //     {
+    //         leg_retract = true;
+    //     }
+    //     else
+    //     {
+    //         leg_retract = false;
+    //     }
+    // }
+    // else
+    // {
+    //     track_en = true;
+    // }
+
+    track_en = false;
 
     pyro::can_tx_drv_t::add_data(0x101, 8, vx);
     pyro::can_tx_drv_t::add_data(0x101, 8, vy);
@@ -268,10 +274,10 @@ void deps_init()
 
     // 3. 初始化串级 PID
     screw_gimbal_deps->pid_deps.pitch_pos =
-        new pid_t(10.6f, 0.15f, 0.8f, 1.0f, 6.0f, 40, 10,
+        new pid_t(10.0f, 0.0f, 0.0f, 1.0f, 10.0f, 40, 10,
                   4); // 位置环输出为 rad/s，限制在电机可接受范围内
     screw_gimbal_deps->pid_deps.pitch_spd =
-        new pid_t(5.0f, 0.0f, 0.2f, 0.0f, 10.0f, 20, 10,
+        new pid_t(20.0f, 0.0f, 0.0f, 0.0f, 2.8f, 20, 10,
                   4); // 输出限制匹配电机 Nm 级
 
     // Yaw 轴 (DJI GM6020，输出为电流值/电压值，通常量级较大，如 +/- 30000)

@@ -94,12 +94,22 @@ void screw_gimbal_t::_update_feedback()
 void screw_gimbal_t::_gimbal_control()
 {
     // --- Pitch 串级控制 ---
-    // 反馈量改用通过电机逆解算出的绝对顺滑数据
+    // 1. 位置环：解算目标角速度
     _ctx.data.target_pitch_radps = _ctx.pid.pitch_pos->calculate(
         _ctx.data.target_pitch_rad, _ctx.data.current_pitch_motor_rad);
 
-    _ctx.data.out_pitch_torque = _ctx.pid.pitch_spd->calculate(
+    // 2. 速度环：解算 PID 输出力矩
+    float pitch_pid_out = _ctx.pid.pitch_spd->calculate(
         _ctx.data.target_pitch_radps, _ctx.data.current_pitch_motor_radps);
+
+    // 3. 前馈/摩擦补偿：根据当前绝对角度计算所需力矩补偿
+    float pitch_ff_torque = _calculate_pitch_compensation(
+        _ctx.data.current_pitch_motor_rad,
+        _ctx.data.target_pitch_radps
+    );
+
+    // 4. 最终合成力矩
+    _ctx.data.out_pitch_torque = pitch_pid_out + pitch_ff_torque;
 
     // --- Yaw 串级控制 ---
     _ctx.data.target_yaw_radps = _ctx.pid.yaw_pos->calculate(
@@ -261,6 +271,37 @@ float screw_gimbal_t::_motor_radps_to_pitch_radps(float motor_radps, float curre
     if (std::abs(dMotor_dpitch) < 0.001f) return 0.0f;
 
     return motor_radps / dMotor_dpitch;
+}
+
+float screw_gimbal_t::_calculate_pitch_compensation(float current_pitch_rad, float target_pitch_radps) const
+{
+    // 1. 求解基准点 (-0.1 rad) 处的机械传动比
+    const float ref_pitch = -0.1f;
+    const float ref_theta = SCREW_THETA_ZERO_RAD + ref_pitch;
+    const float ref_S = std::sqrt(SCREW_L1_SQ_PLUS_L2_SQ - SCREW_TWO_L1_L2 * std::cos(ref_theta));
+    const float ref_dS_dpitch = (SCREW_TWO_L1_L2 * std::sin(ref_theta)) / (2.0f * ref_S);
+    const float ref_dMotor_dpitch = ref_dS_dpitch * 2.0f * PI;
+
+    // 2. 逆推云台关节端的等效恒定负载（重力矩+静摩擦）
+    // 依据虚功原理，关节端力矩 = 电机端力矩 * 传动比
+    const float equivalent_joint_load = 3.0f * ref_dMotor_dpitch;
+
+    // 3. 计算当前实时 Pitch 角度下的机械传动比
+    const float theta_rad = SCREW_THETA_ZERO_RAD + current_pitch_rad;
+    float current_S = std::sqrt(SCREW_L1_SQ_PLUS_L2_SQ - SCREW_TWO_L1_L2 * std::cos(theta_rad));
+    if (current_S < 1.0f) current_S = 1.0f; // 防止除零
+
+    const float dS_dpitch = (SCREW_TWO_L1_L2 * std::sin(theta_rad)) / (2.0f * current_S);
+    const float current_dMotor_dpitch = dS_dpitch * 2.0f * PI;
+
+    // 4. 将关节端恒定负载重新映射为当前角度下所需的电机静力矩补偿
+    float static_comp = 0.0f;
+    if (std::abs(current_dMotor_dpitch) > 0.001f)
+    {
+        static_comp = equivalent_joint_load / current_dMotor_dpitch;
+    }
+
+    return static_comp;
 }
 
 void screw_gimbal_t::_fsm_execute()
