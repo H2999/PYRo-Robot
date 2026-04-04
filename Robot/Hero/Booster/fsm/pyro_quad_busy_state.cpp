@@ -11,7 +11,7 @@ void quad_booster_t::fsm_active_t::state_busy_t::enter(owner *owner)
 void quad_booster_t::fsm_active_t::state_busy_t::execute(owner *owner)
 {
     float error = owner->_ctx.data.target_trig_rad - owner->_ctx.data.current_trig_rad;
-    if (abs(error) < 0.18f)
+    if (abs(error) < 0.12f)
     {
         request_switch(&owner->_state_active._interim_state);
     }

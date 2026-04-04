@@ -16,29 +16,41 @@ struct quad_booster_cmd_t final : public cmd_base_t
 {
     bool fric_on;     // 摩擦轮开启
     bool fire_enable; // 拨弹开启
-    bool speed_contorl_en;
-    bool reset_trig;
     float target_speed;
 
     quad_booster_cmd_t()
-        : fric_on(false), fire_enable(false), speed_contorl_en(true), reset_trig(false), target_speed(0.0f)
+        : fric_on(false), fire_enable(false), target_speed(0.0f)
     {
     }
 };
 
-struct quad_booster_cfg_t
+struct quad_deps_t
 {
+    struct motor_deps_t
+    {
+        motor_base_t *fric_wheels[4]{nullptr};
+        motor_base_t *trigger_wheel{nullptr};
+    };
+
+    struct pid_deps_t
+    {
+        pid_t *fric_pid[4]{nullptr};
+        pid_t *trigger_pos_pid{nullptr};
+        pid_t *trigger_spd_pid{nullptr};
+        pid_t *ball_speed_pid{nullptr};
+    };
+
+    motor_deps_t motor_deps;
+    pid_deps_t pid_deps;
 };
 
 // =========================================================
 // 2. 四轮发射机构类
 // =========================================================
 class quad_booster_t final
-    : public module_base_t<quad_booster_t, quad_booster_cmd_t,
-                           quad_booster_cfg_t>
+    : public module_base_t<quad_booster_t, quad_booster_cmd_t,quad_deps_t>
 {
-    friend class module_base_t<quad_booster_t, quad_booster_cmd_t,
-                               quad_booster_cfg_t>;
+    friend class module_base_t<quad_booster_t, quad_booster_cmd_t,quad_deps_t>;
     friend class jcom_drv_t;
 
     struct motor_ctx_t;
@@ -49,7 +61,7 @@ class quad_booster_t final
   public:
     quad_booster_t(const quad_booster_t &)            = delete;
     quad_booster_t &operator=(const quad_booster_t &) = delete;
-    [[nodiscard]] booster_ctx_t& get_ctx();
+    [[nodiscard]] booster_ctx_t get_ctx() const;
 
   private:
     quad_booster_t();
@@ -61,9 +73,8 @@ class quad_booster_t final
     void _fsm_execute() override;
 
     // --- 内部辅助 ---
-    void _speed_contorl();
+    void _speed_control();
     void _fric_control();
-    bool _heat_control();
     void _trigger_position_control();
     void _trigger_speed_control();
     void _send_fric_command() const;
@@ -91,21 +102,16 @@ class quad_booster_t final
     struct data_ctx_t
     {
         float launch_delay_timer[3]{}; // 发射延时计时器
-        float avg_launch_delay{0};       // 平均发射延时
         float signal_timer{0};         // 信号持续时间计时器
+        float avg_launch_delay{0};      // 平均发射延时
         uint32_t fresh_timer{0};       // <-- 新增：发弹延迟计算的刷新计时器
-        // 核心逻辑变量
-        float last_rotor_rad{0}; // 上一次的转子角度
-        float total_trig_rad{0}; // 累计的输出轴角度（未归一化）
 
         // 反馈
+        float abs_current_fric_mps[4]{}; // 绝对值，用于发弹延迟计算
         float current_fric_mps[4]{};
         float current_trig_radps{0};
         float current_trig_torque{0};
         float current_trig_rad{0}; // -PI ~ PI (归一化后的输出)
-
-        uint16_t current_heat{0};
-        uint16_t current_heat_limit{0};
 
         // 目标
         float target_fric_mps[4]{};
@@ -113,7 +119,6 @@ class quad_booster_t final
         float target_trig_radps{0};
 
         float current_fric_torque[4]{};
-        bool fric_online[4]{false};
         // 输出
         float out_fric_torque[4]{};
         float out_trig_torque{0};
@@ -122,14 +127,14 @@ class quad_booster_t final
     struct shoot_data_t
     {
         float ball_speed[3]{};
-        float fric1_mps = 12.5f;
-        float fric2_mps = 8.5f;
+        float fric1_mps = 15.3f;
+        float fric2_mps = 8.0f;
     };
 
     struct booster_ctx_t
     {
-        motor_ctx_t motor;
-        pid_ctx_t pid;
+        quad_deps_t::motor_deps_t motor;
+        quad_deps_t::pid_deps_t pid;
         data_ctx_t data;
         shoot_data_t shoot_data{};
         quad_booster_cmd_t *cmd{};
@@ -148,7 +153,7 @@ class quad_booster_t final
         void execute(owner *owner) override;
         void exit(owner *owner) override;
 
-      private:
+    private:
         bool _trigger_stopped{false}; // 用于确保拨弹盘完全停止后发0
     };
 
@@ -159,8 +164,7 @@ class quad_booster_t final
             void enter(owner *owner) override;
             void execute(owner *owner) override;
             void exit(owner *owner) override;
-
-          private:
+        private:
             float _homing_turnback_start_time{0.0f};
         };
         struct state_interim_t final : public state_t<owner>
@@ -202,8 +206,6 @@ class quad_booster_t final
     fsm_active_t _state_active;
     fsm_t<owner> _main_fsm;
 
-    static constexpr float FRIC1_RADIUS = 0.03f;
-    static constexpr float FRIC2_RADIUS = 0.03f;
 };
 
 } // namespace pyro

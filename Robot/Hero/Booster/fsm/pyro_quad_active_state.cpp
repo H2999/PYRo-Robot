@@ -7,24 +7,18 @@ namespace pyro
 void quad_booster_t::fsm_active_t::on_enter(owner *owner)
 {
     owner->_ctx.motor.trigger_wheel->enable();
-    for (int i = 0; i < 4; i++)
-    {
-        owner->_ctx.motor.fric_wheels[i]->enable();
-    }
+    owner->_ctx.motor.fric_wheels[0]->enable();
+    owner->_ctx.motor.fric_wheels[1]->enable();
+    owner->_ctx.motor.fric_wheels[2]->enable();
+    owner->_ctx.motor.fric_wheels[3]->enable();
+
     change_state(&_homing_state);
 }
 
 void quad_booster_t::fsm_active_t::on_execute(owner *owner)
 {
-    if (owner->_ctx.cmd->reset_trig)
-    {
-        change_state(&_homing_state);
-    }
     // 1. 摩擦轮控制
-    if (owner->_ctx.cmd->speed_contorl_en)
-    {
-        owner->_speed_contorl();
-    }
+    owner->_speed_control();
 
     if (owner->_ctx.cmd->fric_on)
     {
@@ -63,21 +57,14 @@ void quad_booster_t::fsm_active_t::on_execute(owner *owner)
 
     // 3. 拨弹盘堵转判断
     // 通过拨盘电机的速度和扭矩判断是否堵转
-    constexpr float STALL_TIME_THRESHOLD   = 500.0f; // 堵转时间阈值
-    constexpr float HEAT_TIME              = 2000.0f;
-    constexpr float HEAT_TORQUE            = 10.0f;
-    constexpr float STALL_TORQUE_THRESHOLD = 5.0f;   // 堵转扭矩阈值
-    constexpr float STALL_SPEED_THRESHOLD  = 0.3f;   // 堵转速度阈值
+    constexpr float STALL_TIME_THRESHOLD   = 400.0f; // 堵转时间阈值
+    constexpr float STALL_TORQUE_THRESHOLD = 3.0f;   // 堵转扭矩阈值
+    constexpr float STALL_SPEED_THRESHOLD  = 0.4f;  // 堵转速度阈值
 
     static float stall_start_time          = 0.0f;
-    static uint16_t clear_stall_counter    = 0;      // 新增：用于防抖计时的计数器
-
     if (abs(owner->_ctx.data.current_trig_radps) < STALL_SPEED_THRESHOLD &&
         abs(owner->_ctx.data.current_trig_torque) > STALL_TORQUE_THRESHOLD)
     {
-        // 只要满足堵转条件，立刻清空“退出堵转”的计数器
-        clear_stall_counter = 0;
-
         if (stall_start_time == 0.0f)
         {
             stall_start_time = dwt_drv_t::get_timeline_ms();
@@ -94,68 +81,13 @@ void quad_booster_t::fsm_active_t::on_execute(owner *owner)
                 {
                     reset();
                 }
-                stall_start_time = 0.0f; // 触发反转后重置堵转计时
+                stall_start_time = 0.0f; // 重置堵转计时
             }
         }
     }
     else
     {
-        // 不满足堵转条件时，防抖逻辑启动
-        if (stall_start_time != 0.0f)
-        {
-            clear_stall_counter++;
-            if (clear_stall_counter >= 8) // 连续20个周期不满足堵转条件
-            {
-                stall_start_time = 0.0f;   // 真正重置堵转计时
-                clear_stall_counter = 0;   // 计数器归零
-            }
-        }
-        else
-        {
-            clear_stall_counter = 0; // 平时未触发堵转检测时，保持计数器为0
-        }
-    }
-
-    // 4. 拨弹盘热量（过载）保护逻辑
-    static float heat_stall_time = 0.0f;
-    static uint16_t clear_heat_counter = 0; // 新增：用于热量保护防抖的计数器
-
-    if (abs(owner->_ctx.data.current_trig_torque) > HEAT_TORQUE)
-    {
-        // 只要扭矩超标，立刻清空“退出过载”的计数器
-        clear_heat_counter = 0;
-
-        if (heat_stall_time == 0.0f)
-        {
-            heat_stall_time = dwt_drv_t::get_timeline_ms();
-        }
-        else
-        {
-            const float elapsed_time =
-                dwt_drv_t::get_timeline_ms() - heat_stall_time;
-            if (elapsed_time >= HEAT_TIME)
-            {
-                // 持续高扭矩超过 1500ms，切断电机输出以保护硬件
-                owner->_ctx.motor.trigger_wheel->disable();
-            }
-        }
-    }
-    else
-    {
-        // 扭矩回落到安全范围内时，防抖逻辑启动
-        if (heat_stall_time != 0.0f)
-        {
-            clear_heat_counter++;
-            if (clear_heat_counter >= 10) // 连续20个周期扭矩低于阈值
-            {
-                heat_stall_time = 0.0f;   // 真正重置热量计时
-                clear_heat_counter = 0;   // 计数器归零
-            }
-        }
-        else
-        {
-            clear_heat_counter = 0; // 平时未触发时，保持计数器为0
-        }
+        stall_start_time = 0.0f; // 重置堵转计时
     }
 }
 

@@ -7,6 +7,11 @@ void quad_booster_t::state_passive_t::enter(owner *owner)
 {
     owner->_ctx.pid.trigger_pos_pid->clear();
     owner->_ctx.pid.trigger_spd_pid->clear();
+    owner->_ctx.motor.trigger_wheel->disable();
+    owner->_ctx.motor.fric_wheels[0]->enable();
+    owner->_ctx.motor.fric_wheels[1]->disable();
+    owner->_ctx.motor.fric_wheels[2]->disable();
+    owner->_ctx.motor.fric_wheels[3]->disable();
     _trigger_stopped = false;
 }
 
@@ -32,7 +37,6 @@ void quad_booster_t::state_passive_t::execute(owner *owner)
     {
         owner->_ctx.data.out_trig_torque = 0.0f;
         _trigger_stopped                 = true;
-        owner->_ctx.motor.trigger_wheel->disable();
     }
     if (!_trigger_stopped)
         owner->_trigger_speed_control();
