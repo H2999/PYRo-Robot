@@ -19,7 +19,7 @@ extern "C"
 
     void pyro_init_thread(void *argument)
     {
-        dwt_drv_t::init(550); // Initialize DWT at 480 MHz
+        dwt_drv_t::init(550); // Initialize DWT at 550 MHz
 
         can_hub_t::get_instance();
         can1_drv = new can_drv_t(&hfdcan1);
@@ -36,17 +36,17 @@ extern "C"
         ins_drv->init();
 
 #ifdef DR16_UART
-        DR16_UART.reset(100000, UART_WORDLENGTH_9B, UART_STOPBITS_2,
-                        UART_PARITY_EVEN);
         dr16_drv_t::instance().start();
         dr16_drv_t::instance().enable();
+        DR16_UART.reset(100000, UART_WORDLENGTH_9B, UART_STOPBITS_2,
+                UART_PARITY_EVEN);
 #endif
 
 #ifdef VT03_UART
-        VT03_UART.reset(921600, UART_WORDLENGTH_8B, UART_STOPBITS_1,
-                        UART_PARITY_NONE);
         vt03_drv_t::instance().start();
         vt03_drv_t::instance().enable();
+        VT03_UART.reset(921600, UART_WORDLENGTH_8B, UART_STOPBITS_1,
+                UART_PARITY_NONE);
 #endif
 
 #ifdef REFEREE_UART
