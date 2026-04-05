@@ -73,6 +73,8 @@ add_subdirectory(PYRo)
      add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/infantry2)
  elseif(ROBOT_ID EQUAL SENTRY_ID)
      add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/sentry)
+ elseif(ROBOT_ID EQUAL UAV_ID)
+     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/robot/uav)
  endif ()
 
 
@@ -81,8 +83,8 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
     CMSISDSP
     dsppp_lib
-    Hero
-
+#    Hero
+    UAV
 )
 
 add_dependencies(echo_robot_id ${CMAKE_PROJECT_NAME})
