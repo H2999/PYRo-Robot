@@ -40,6 +40,7 @@ void uav_gimbal_t::fsm_active_t::state_rc_t::execute(uav_gimbal_t *owner)
     {
         owner->gimbal_ctx.data._target_pitch_angle = pitch_min_value;
     }
+
     const float pitch_error = owner->gimbal_ctx.data._target_pitch_angle - owner->gimbal_ctx.data._current_imu_pitch_angle;
     if (pitch_error > PI)
     {

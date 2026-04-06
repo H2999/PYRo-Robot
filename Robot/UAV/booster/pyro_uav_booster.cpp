@@ -1,6 +1,5 @@
 #include "pyro_uav_booster.h"
 #include "pyro_dji_motor_drv.h"
-#include "pyro_uav_booster.h"
 
 namespace pyro
 {
@@ -19,6 +18,10 @@ status_t uav_booster_t::_init()
     booster_ctx.cfg.motor_cfg.fric_wheel[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1,can_hub_t::can2);
     //拨弹盘电机初始化
     booster_ctx.cfg.motor_cfg.trigger_wheel = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_4,can_hub_t::can2);
+
+    booster_ctx.cfg.motor_cfg.fric_wheel[0]->enable();
+    booster_ctx.cfg.motor_cfg.fric_wheel[1]->enable();
+    booster_ctx.cfg.motor_cfg.trigger_wheel->enable();
 
     //摩擦轮pid初始化
     booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(6.40f, 0.02f, 0.02f,2.5f,
@@ -159,16 +162,12 @@ void uav_booster_t::trigger_speed_control()
 void uav_booster_t::send_fric_command()
 {
     booster_ctx.cfg.motor_cfg.fric_wheel[0]->send_torque(booster_ctx.data_ctx.fric_output_torque[0]);
-    // booster_ctx.cfg.motor_cfg.fric_wheel[1]->send_torque(booster_ctx.data_ctx.fric_output_torque[1]);
-
-    // booster_ctx.cfg.motor_cfg.fric_wheel[0]->send_torque(0);
-    // booster_ctx.cfg.motor_cfg.fric_wheel[1]->send_torque(0);
+    booster_ctx.cfg.motor_cfg.fric_wheel[1]->send_torque(booster_ctx.data_ctx.fric_output_torque[1]);
 }
 
 void uav_booster_t::send_trigger_command()
 {
-    // booster_ctx.cfg.motor_cfg.trigger_wheel->send_torque(booster_ctx.data_ctx.trigger_output_torque);
-    booster_ctx.cfg.motor_cfg.trigger_wheel->send_torque(0);
+    booster_ctx.cfg.motor_cfg.trigger_wheel->send_torque(booster_ctx.data_ctx.trigger_output_torque);
 }
 
 } // namespace pyro

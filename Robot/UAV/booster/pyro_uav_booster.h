@@ -78,7 +78,7 @@ private:
     void trigger_speed_control();
     void send_fric_command();
     void send_trigger_command();
-    float normalize_angle(float angle);
+    static float normalize_angle(float angle);
 
     struct data_ctx_t
     {

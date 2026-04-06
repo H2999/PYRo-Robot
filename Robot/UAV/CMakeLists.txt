@@ -7,6 +7,7 @@ target_sources(UAV
         application/pyro_init_thread.cpp
         application/pyro_mission_planer.cpp
         application/pyro_pc_communicate.cpp
+
         booster/fsm/pyro_auto_aim_state.cpp
         booster/fsm/pyro_booster_active_state.cpp
         booster/fsm/pyro_booster_continue_fire_state.cpp
@@ -15,6 +16,7 @@ target_sources(UAV
         booster/fsm/pyro_booster_single_fire_state.cpp
         booster/fsm/pyro_booster_stall_state.cpp
         booster/pyro_uav_booster.cpp
+
         gimbal/pyro_uav_gimbal.cpp
         gimbal/fsm/pyro_active_state.cpp
         gimbal/fsm/pyro_gimbal_auto_state.cpp
@@ -37,6 +39,6 @@ target_link_libraries(UAV
 )
 
 target_compile_definitions(PYRo PUBLIC
-#        DR16_UART=PYRO_UART5
+        DR16_UART=PYRO_UART5
         VT03_UART=PYRO_UART1
 )

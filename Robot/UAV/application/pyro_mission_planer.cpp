@@ -13,18 +13,18 @@ extern "C"
 
     void start_mission_planer_task(void const *argument)
     {
-        xTaskCreate(uav_gimbal_init, "pyro_gimbal_init", 512, nullptr,
-                    configMAX_PRIORITIES - 1, nullptr);
-        xTaskCreate(uav_booster_init, "pyro_booster_init", 512, nullptr,
-                    configMAX_PRIORITIES - 1, nullptr);
         xTaskCreate(pyro_init_thread, "pyro_init_thread", 512, nullptr,
-                    configMAX_PRIORITIES - 1, nullptr);
+            configMAX_PRIORITIES - 1, nullptr);
 
+        xTaskCreate(uav_gimbal_init, "pyro_gimbal_init", 512, nullptr,
+                    configMAX_PRIORITIES - 2, nullptr);
+        xTaskCreate(uav_booster_init, "pyro_booster_init", 512, nullptr,
+                    configMAX_PRIORITIES - 2, nullptr);
 
 #if DEBUG_MODE
         // xTaskCreate(start_debug_task, "start_debug_task", 128, nullptr,
         //             configMAX_PRIORITIES - 2, nullptr);
 #endif
-        vTaskDelete(nullptr);
+        // vTaskDelete(nullptr);
     }
 }
