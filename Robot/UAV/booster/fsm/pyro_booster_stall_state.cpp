@@ -40,7 +40,7 @@ void uav_booster_t::fsm_active_t::shoot_stall_t::execute(uav_booster_t *owner)
     if (fabs(owner->booster_ctx.data_ctx.current_trigger_rad -
              owner->booster_ctx.data_ctx.target_trigger_rad) < 0.1f)
     {
-        request_switch(&owner->active_state.interim_state);
+        request_switch(&owner->active_state.middle_state);
     }
 
     owner->trigger_position_control();

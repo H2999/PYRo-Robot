@@ -60,11 +60,13 @@ void booster_dr162cmd(uint32_t notify_val)
     if (notify_val & EVENT_BIT_TRIG_ENABLE)
     {
         uav_booster_cmd_ptr->trigger_enable = true;
+        // uav_booster_cmd_ptr->continue_mode = true;
         uav_booster_cmd_ptr->single_mode = true;
     }
     if (notify_val & EVENT_BIT_TRIG_DISABLE)
     {
         uav_booster_cmd_ptr->trigger_enable = false;
+        // uav_booster_cmd_ptr->continue_mode = false;
         uav_booster_cmd_ptr->single_mode = false;
     }
 }

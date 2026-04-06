@@ -82,7 +82,7 @@ private:
 
     struct data_ctx_t
     {
-        float last_rotor_rad{0};
+        float last_motor_rad{0};
         float total_trigger_rad{0};
 
         //当前
@@ -127,7 +127,7 @@ private:
 
     struct fsm_active_t final : public fsm_t<uav_booster_t>
     {
-        struct state_interim_t final : public state_t<uav_booster_t>
+        struct state_middle_t final : public state_t<uav_booster_t>
         {
             void enter(uav_booster_t *owner) override;
             void execute(uav_booster_t *owner) override;
@@ -167,7 +167,7 @@ private:
         void on_exit(uav_booster_t *owner) override;
 
     private:
-        state_interim_t interim_state;
+        state_middle_t middle_state;
         shoot_single_bullet_t single_state;
         shoot_continue_bullet_t continue_state;
         shoot_stall_t stall_state;

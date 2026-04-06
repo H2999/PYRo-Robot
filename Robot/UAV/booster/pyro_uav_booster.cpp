@@ -65,13 +65,13 @@ void uav_booster_t::_update_feedback()
     booster_ctx.data_ctx.current_trigger_radps =
             booster_ctx.cfg.motor_cfg.trigger_wheel->get_current_rotate() * reciprocal_reduction_ratio;
 
-    booster_ctx.data_ctx.current_trigger_rad = booster_ctx.cfg.motor_cfg.trigger_wheel->get_current_position();
+    // booster_ctx.data_ctx.current_trigger_rad = booster_ctx.cfg.motor_cfg.trigger_wheel->get_current_position();
 
     booster_ctx.data_ctx.current_trigger_torque =
        booster_ctx.cfg.motor_cfg.trigger_wheel->get_current_torque();
 
-    const float now_rotor_rad = booster_ctx.cfg.motor_cfg.trigger_wheel->get_current_position();
-    float delta_rotor   = now_rotor_rad - booster_ctx.data_ctx.last_rotor_rad;
+    const float now_motor_rad = booster_ctx.cfg.motor_cfg.trigger_wheel->get_current_position();
+    float delta_rotor   = now_motor_rad - booster_ctx.data_ctx.last_motor_rad;
     if (delta_rotor > PI)
     {
         delta_rotor -= 2.0f * PI;
@@ -83,7 +83,7 @@ void uav_booster_t::_update_feedback()
     // 累积到输出轴总角度
     booster_ctx.data_ctx.total_trigger_rad += delta_rotor * reciprocal_reduction_ratio;
 
-    booster_ctx.data_ctx.last_rotor_rad  = now_rotor_rad;
+    booster_ctx.data_ctx.last_motor_rad  = now_motor_rad;
 
     booster_ctx.data_ctx.current_trigger_rad = normalize_angle(booster_ctx.data_ctx.total_trigger_rad);
 

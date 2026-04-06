@@ -9,7 +9,7 @@ void uav_booster_t::fsm_active_t::on_enter(uav_booster_t *owner)
     owner->booster_ctx.cfg.motor_cfg.fric_wheel[1]->enable();
     owner->booster_ctx.cfg.motor_cfg.trigger_wheel->enable();
 
-    change_state(&interim_state);
+    change_state(&middle_state);
 }
 
 void uav_booster_t::fsm_active_t::on_execute(uav_booster_t *owner)
