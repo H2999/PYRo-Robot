@@ -22,6 +22,8 @@ target_sources(UAV
         gimbal/fsm/pyro_gimbal_auto_state.cpp
         gimbal/fsm/pyro_gimbal_rc_state.cpp
         gimbal/fsm/pyro_passive_state.cpp
+
+        gimbal/feedforward_kf/forecast_v.cpp
 )
 
 target_include_directories(UAV
@@ -29,6 +31,7 @@ target_include_directories(UAV
         ${CMAKE_CURRENT_SOURCE_DIR}/application
         ${CMAKE_CURRENT_SOURCE_DIR}/booster
         ${CMAKE_CURRENT_SOURCE_DIR}/gimbal
+        ${CMAKE_CURRENT_SOURCE_DIR}/gimbal/feedforward_kf
 )
 
 target_link_libraries(UAV

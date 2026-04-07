@@ -172,6 +172,10 @@ private:
             void enter(uav_gimbal_t *owner) override;
             void execute(uav_gimbal_t *owner) override;
             void exit(uav_gimbal_t *owner) override;
+
+        private:
+            float last_pitch_target_angle{};
+            float now_pitch_target_angle{};
         };
 
         void on_enter(uav_gimbal_t *owner) override;

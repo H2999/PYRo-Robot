@@ -29,6 +29,7 @@ void uav_gimbal_t::fsm_active_t::state_rc_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_yaw_angle += 2.0f * PI;
     }
 
+
     //pitch目标值 归一化到-pi到pi之间
     owner->gimbal_ctx.data._target_pitch_angle += owner->gimbal_ctx.cmd->pitch_delta_angle;
 
