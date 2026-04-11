@@ -1,4 +1,5 @@
-add_library(UAV OBJECT)
+add_library(UAV OBJECT
+        ui/pyro_ui_app.cpp)
 
 target_sources(UAV
         PRIVATE
@@ -6,7 +7,9 @@ target_sources(UAV
         application/pyro_gimbal_app.cpp
         application/pyro_init_thread.cpp
         application/pyro_mission_planer.cpp
-        application/pyro_pc_communicate.cpp
+        application/pyro_autoaim_com.cpp
+
+        autoaim/pyro_autoaim_drv.cpp
 
         booster/fsm/pyro_auto_aim_state.cpp
         booster/fsm/pyro_booster_active_state.cpp
@@ -22,20 +25,21 @@ target_sources(UAV
         gimbal/fsm/pyro_gimbal_auto_state.cpp
         gimbal/fsm/pyro_gimbal_rc_state.cpp
         gimbal/fsm/pyro_passive_state.cpp
-
         gimbal/feedforward_kf/forecast_v.cpp
+
+        ui/pyro_ui_app.cpp
 )
 
 target_include_directories(UAV
         PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/application
+        ${CMAKE_CURRENT_SOURCE_DIR}/autoaim
         ${CMAKE_CURRENT_SOURCE_DIR}/booster
         ${CMAKE_CURRENT_SOURCE_DIR}/gimbal
         ${CMAKE_CURRENT_SOURCE_DIR}/gimbal/feedforward_kf
 )
 
-target_link_libraries(UAV
-        PUBLIC
+target_link_libraries(UAV PUBLIC
         stm32cubemx
         dsppp_lib
         PYRo
@@ -43,5 +47,7 @@ target_link_libraries(UAV
 
 target_compile_definitions(PYRo PUBLIC
         DR16_UART=PYRO_UART5
-        VT03_UART=PYRO_UART1
+        VT03_UART=PYRO_UART10
+        REFEREE_UART=PYRO_UART1
+        AUTOAIM_UART=PYRO_UART7
 )

@@ -1,28 +1,31 @@
 #ifndef PYRO_UAV_BOOSTER_H
 #define PYRO_UAV_BOOSTER_H
 
+#include "protocol.h"
 #include "pyro_algo_pid.h"
 #include "pyro_module_base.h"
 #include "pyro_motor_base.h"
+#include "pyro_referee.h"
 
 namespace pyro
 {
 
+#define test_speed 0
+
 //命令模板
 struct uav_booster_cmd_t final : public cmd_base_t
 {
-    bool trigger_enable;        // 拨弹开启
-    float target_fric1_mps;   // 第一级摩擦轮目标转速
-    float target_fric2_mps;   // 第二级摩擦轮目标转速
+    bool fric_enable;
+    bool trigger_enable;      // 拨弹开启
+    float target_fric_mps;   // 摩擦轮目标转速
 
     float target_trigger_radps;
     bool single_mode;
     bool continue_mode;
-
     uint8_t booster_auto_flag;
 
     uav_booster_cmd_t()
-        :trigger_enable(false), target_fric1_mps(0), target_fric2_mps(0),target_trigger_radps(0),
+        :fric_enable(false), target_fric_mps(0),target_trigger_radps(0),
         single_mode(false), continue_mode(false),booster_auto_flag(0)
     {
     }
@@ -58,6 +61,9 @@ class uav_booster_t : public module_base_t<uav_booster_t,uav_booster_cmd_t,uav_b
     struct data_ctx_t;
     struct booster_auto_ctx_t;
     struct booster_ctx_t;
+    struct shoot_data_t;
+    struct referee_ctx_t;
+    struct IIR_Filter_ctx_t;
 
 public:
     uav_booster_t(const uav_booster_t &) = delete;
@@ -77,11 +83,15 @@ private:
     void trigger_position_control();
     void trigger_speed_control();
     void send_fric_command();
+    void speed_control();
     void send_trigger_command();
+
     static float normalize_angle(float angle);
 
     struct data_ctx_t
     {
+        float fric_set_speed[2] = {22.0f,-22.0f};
+
         float last_motor_rad{0};
         float total_trigger_rad{0};
 
@@ -105,7 +115,27 @@ private:
     {
         uint8_t fire_enable;
         float avg_speed;
+    };
 
+    struct shoot_data_t
+    {
+        float last_bullet_speed_mps{0};
+        float now_bullet_speed_mps{0};
+        float ball_speed[3]{0.0f};
+
+        float fric_mps = 22.0f;
+    };
+
+    struct referee_ctx_t
+    {
+        //裁判系统数据 来获取弹速做弹速闭环
+        referee_drv_t *referee_drv{nullptr};
+        referee_data_t referee_data{};
+    };
+
+    struct IIR_Filter_ctx_t
+    {
+        float f[3]{};
     };
 
     struct booster_ctx_t
@@ -114,6 +144,9 @@ private:
         data_ctx_t data_ctx;
         uav_booster_cmd_t *cmd{};
         booster_auto_ctx_t auto_ctx{};
+        shoot_data_t shoot_data{};
+        referee_ctx_t referee_ctx{};
+        IIR_Filter_ctx_t IIR_Filter_ctx[2]{};
     };
 
     booster_ctx_t booster_ctx;
@@ -183,6 +216,8 @@ private:
 
     static constexpr float reduction_ratio = 36.0f;
     static constexpr float reciprocal_reduction_ratio =  0.0277777777777777f;
+
+    static constexpr float filter_num[3] = {1.562916920892f, -0.6413063774028f, 0.07838945651057f};
 };
 
 };

@@ -9,6 +9,9 @@
 
 namespace pyro
 {
+
+#define test_gimbal 1
+
 //命令定义
 struct uav_gimbal_cmd_t final : cmd_base_t
 {

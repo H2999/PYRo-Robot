@@ -12,10 +12,14 @@ void uav_booster_t::fsm_active_t::on_enter(uav_booster_t *owner)
     change_state(&middle_state);
 }
 
+    //卡尔曼滤波系数
+
 void uav_booster_t::fsm_active_t::on_execute(uav_booster_t *owner)
 {
-    owner->booster_ctx.data_ctx.target_fric_mps[0] = owner->booster_ctx.cmd->target_fric1_mps;
-    owner->booster_ctx.data_ctx.target_fric_mps[1] = owner->booster_ctx.cmd->target_fric2_mps;
+    owner->speed_control();
+
+    owner->booster_ctx.data_ctx.target_fric_mps[0] = owner->booster_ctx.shoot_data.fric_mps;
+    owner->booster_ctx.data_ctx.target_fric_mps[1] = -owner->booster_ctx.shoot_data.fric_mps;
 
     owner->fric_control();
     owner->send_fric_command();
