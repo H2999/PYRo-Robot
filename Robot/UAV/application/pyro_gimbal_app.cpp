@@ -32,7 +32,6 @@ void gimbal_dr16cmd(uint32_t notify_val)
         gimbal_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
         gimbal_cmd_ptr->yaw_delta_angle     = 0;
         gimbal_cmd_ptr->pitch_delta_angle   = 0;
-        gimbal_cmd_ptr->roll_delta_angle    = 0;
         return;
     }
     gimbal_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
@@ -45,7 +44,6 @@ void gimbal_dr16cmd(uint32_t notify_val)
         gimbal_cmd_ptr->pitch_target_angle = rx_data.shoot_pitch;
         gimbal_cmd_ptr->yaw_delta_angle   = - vrc.axes.rx * rc_sensitivity;
         gimbal_cmd_ptr->pitch_delta_angle = - vrc.axes.ry * rc_sensitivity;
-        gimbal_cmd_ptr->roll_delta_angle  = - vrc.axes.lx * rc_sensitivity;
     }
     //右侧拨码在中间由遥控器控制
     if (sw_pos_t::MID == vrc.switches.right.current_pos)
@@ -54,7 +52,6 @@ void gimbal_dr16cmd(uint32_t notify_val)
 
         gimbal_cmd_ptr->yaw_delta_angle   = - vrc.axes.rx * rc_sensitivity;
         gimbal_cmd_ptr->pitch_delta_angle = - vrc.axes.ry * rc_sensitivity;
-        gimbal_cmd_ptr->roll_delta_angle  = - vrc.axes.lx * rc_sensitivity;
     }
 }
 
@@ -90,10 +87,10 @@ void uav_gimbal_main_thread(void *argument)
         {
             gimbal_dr16cmd(notify_val);
         }
-        // else if (vt03_drv_t::instance().check_online())
-        // {
-        //     gimbalvt03cmd(notify_val);
-        // }
+        else if (vt03_drv_t::instance().check_online())
+        {
+            gimbalvt03cmd(notify_val);
+        }
 
         gimbal_ptr->set_command(*gimbal_cmd_ptr);
         vTaskDelay(1);

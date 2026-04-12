@@ -4,9 +4,8 @@ namespace pyro
 {
 void uav_gimbal_t::fsm_active_t::on_enter(uav_gimbal_t *owner)
 {
-    owner->gimbal_ctx.motor.yaw_motor->enable();
-    owner->gimbal_ctx.motor.pitch_motor->enable();
-    owner->gimbal_ctx.motor.roll_motor->enable();
+    owner->gimbal_ctx.cfg.motor_ctx.yaw_motor->enable();
+    owner->gimbal_ctx.cfg.motor_ctx.pitch_motor->enable();
 }
 
 void uav_gimbal_t::fsm_active_t::on_execute(uav_gimbal_t *owner)

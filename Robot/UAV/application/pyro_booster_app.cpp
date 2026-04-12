@@ -42,7 +42,7 @@ void booster_dr16rcmd(uint32_t notify_val)
 
     if(sw_pos_t::DOWN == vrc.switches.right.current_pos)
     {
-        uav_booster_cmd_ptr->mode      = cmd_base_t::mode_t::ACTIVE;
+        // uav_booster_cmd_ptr->mode      = cmd_base_t::mode_t::ACTIVE;
     }
 
     if (notify_val & EVENT_BIT_FRIC_ENABLE)

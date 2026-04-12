@@ -24,7 +24,6 @@ struct InputData
     float curr_pitch;
     float curr_roll;
     float curr_speed;
-    uint8_t shoot_delay;
     uint8_t state;
     uint8_t autoaim;
     uint8_t enemy_color;

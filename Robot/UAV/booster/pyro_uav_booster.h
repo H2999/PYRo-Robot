@@ -90,8 +90,6 @@ private:
 
     struct data_ctx_t
     {
-        float fric_set_speed[2] = {22.0f,-22.0f};
-
         float last_motor_rad{0};
         float total_trigger_rad{0};
 
