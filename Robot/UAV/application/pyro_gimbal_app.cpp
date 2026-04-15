@@ -87,10 +87,10 @@ void uav_gimbal_main_thread(void *argument)
         {
             gimbal_dr16cmd(notify_val);
         }
-        else if (vt03_drv_t::instance().check_online())
-        {
-            gimbalvt03cmd(notify_val);
-        }
+        // else if (vt03_drv_t::instance().check_online())
+        // {
+        //     gimbalvt03cmd(notify_val);
+        // }
 
         gimbal_ptr->set_command(*gimbal_cmd_ptr);
         vTaskDelay(1);

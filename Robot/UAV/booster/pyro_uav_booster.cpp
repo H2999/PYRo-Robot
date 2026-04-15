@@ -17,10 +17,10 @@ status_t uav_booster_t::_init()
     booster_ctx.referee_ctx.referee_drv = referee_drv_t::get_instance();
 
     //摩擦轮电机初始化
-    booster_ctx.cfg.motor_cfg.fric_wheel[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1,can_hub_t::can2);
-    booster_ctx.cfg.motor_cfg.fric_wheel[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2,can_hub_t::can2);
+    booster_ctx.cfg.motor_cfg.fric_wheel[0] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_1,can_hub_t::can1);
+    booster_ctx.cfg.motor_cfg.fric_wheel[1] = new dji_m3508_motor_drv_t(dji_motor_tx_frame_t::id_2,can_hub_t::can1);
     //拨弹盘电机初始化
-    booster_ctx.cfg.motor_cfg.trigger_wheel = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_4,can_hub_t::can2);
+    booster_ctx.cfg.motor_cfg.trigger_wheel = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_4,can_hub_t::can1);
 
     //摩擦轮pid初始化
     booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(7.40f, 0.02f, 0.02f,2.5f,
@@ -29,9 +29,9 @@ status_t uav_booster_t::_init()
         20, 320, 80, 4);
     //拨弹盘pid初始化
     booster_ctx.cfg.pid_cfg.trigger_position_pid =
-        new pid_t(8.4f, 0.05, 0, 1.0f, 10.0f, 100, 80, 4);
+        new pid_t(9.4f, 0.05, 0, 1.0f, 10.0f, 100, 80, 4);
     booster_ctx.cfg.pid_cfg.trigger_speed_pid =
-        new pid_t(7.8f, 0.05, 0, 1.0, 15.0f, 100, 80, 4);
+        new pid_t(9.8f, 0.05, 0, 1.0, 15.0f, 100, 80, 4);
 
     booster_ctx.cfg.pid_cfg.shoot_closed_pid = new pid_t(2.8f, 0.25, 0, 1.0f, 5.0f);
     return PYRO_OK;
@@ -249,5 +249,10 @@ void uav_booster_t::send_trigger_command()
 {
     booster_ctx.cfg.motor_cfg.trigger_wheel->send_torque(booster_ctx.data_ctx.trigger_output_torque);
 }
+
+// void uav_booster_t::get_referee_data()
+// {
+//     return booster_ctx.referee_ctx.referee_data.
+// }
 
 } // namespace pyro

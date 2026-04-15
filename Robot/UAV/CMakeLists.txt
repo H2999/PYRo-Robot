@@ -47,7 +47,8 @@ target_link_libraries(UAV PUBLIC
 
 target_compile_definitions(PYRo PUBLIC
         DR16_UART=PYRO_UART5
-        VT03_UART=PYRO_UART10
+#        VT03_UART=PYRO_UART10
         REFEREE_UART=PYRO_UART1
         AUTOAIM_UART=PYRO_UART7
+        JCOM_DEBUG_PORT=PYRO_UART10
 )

@@ -86,6 +86,8 @@ private:
     void speed_control();
     void send_trigger_command();
 
+    void get_referee_data();
+
     static float normalize_angle(float angle);
 
     struct data_ctx_t

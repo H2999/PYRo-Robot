@@ -27,5 +27,7 @@ extern "C"
                     configMAX_PRIORITIES - 2, nullptr);
         // xTaskCreate(uav_ui_init,"uav_ui_init",512,nullptr,
         //             configMAX_PRIORITIES - 2, nullptr);
+        xTaskCreate(start_debug_task,"start_debug_task", 512, nullptr,
+                    configMAX_PRIORITIES - 2, nullptr);
     }
 }

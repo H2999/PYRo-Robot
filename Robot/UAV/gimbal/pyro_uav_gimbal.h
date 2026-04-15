@@ -178,13 +178,13 @@ private:
     fsm_active_t state_active;
     fsm_t<uav_gimbal_t> main_fsm;
 
-    static constexpr float yaw_motor_max_value = 2.3f;
-    static constexpr float yaw_motor_min_value = -0.6f;//右转角度减小 与imu方向相反 -2.25
+    static constexpr float yaw_motor_max_value = 1.56f;
+    static constexpr float yaw_motor_min_value = -1.16f;//右转角度减小 与imu方向相反 -2.25
 
     static constexpr float pitch_max_value = 0.734365752f;
     static constexpr float pitch_min_value = -0.362505883f;
 
-    static constexpr float YAW_OFFSET_RAD = 1.85505f;
+    static constexpr float YAW_OFFSET_RAD = 2.60700035f;
     static constexpr float PITCH_OFFSET_RAD = -0.2319f;
 
     // typedef struct {
