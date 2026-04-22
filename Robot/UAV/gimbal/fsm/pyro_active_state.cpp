@@ -6,6 +6,11 @@ void uav_gimbal_t::fsm_active_t::on_enter(uav_gimbal_t *owner)
 {
     owner->gimbal_ctx.cfg.motor_ctx.yaw_motor->enable();
     owner->gimbal_ctx.cfg.motor_ctx.pitch_motor->enable();
+    owner->gimbal_ctx.cfg.pid_ctx.yaw_position_pid->clear();
+    owner->gimbal_ctx.cfg.pid_ctx.pitch_position_pid->clear();
+
+    owner->gimbal_ctx.cfg.pid_ctx.yaw_speed_pid->clear();
+    owner->gimbal_ctx.cfg.pid_ctx.pitch_speed_pid->clear();
 }
 
 void uav_gimbal_t::fsm_active_t::on_execute(uav_gimbal_t *owner)

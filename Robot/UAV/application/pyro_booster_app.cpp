@@ -62,6 +62,7 @@ extern "C"
             }
             if (notify_val & DR16_TRIG_AND_FRIC_DISABLE)
             {
+                uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
                 uav_booster_cmd_ptr->fric_enable = false;
                 uav_booster_cmd_ptr->trigger_enable = false;
                 uav_booster_cmd_ptr->continue_mode = false;

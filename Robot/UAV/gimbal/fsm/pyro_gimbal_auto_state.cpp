@@ -5,7 +5,9 @@ using namespace pyro;
 
 void uav_gimbal_t::fsm_active_t::state_auto_t::enter(uav_gimbal_t *owner)
 {
-
+    // 初始化目标角度为当前IMU角度，避免切换时抖动
+    owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.data._current_imu_yaw_angle;
+    owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data._current_imu_pitch_angle;
 }
 
 void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
@@ -54,14 +56,14 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_pitch_speed += pitch_ff;
     }
 
-    if (owner->gimbal_ctx.data._target_pitch_angle > owner->gimbal_ctx.data.pitch_real_max_limit_angle)
-    {
-        owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data.pitch_real_max_limit_angle;
-    }
-    if (owner->gimbal_ctx.data._target_pitch_angle < owner->gimbal_ctx.data.pitch_real_min_limit_angle)
-    {
-        owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data.pitch_real_min_limit_angle;
-    }
+    // if (owner->gimbal_ctx.data._target_pitch_angle > owner->gimbal_ctx.data.pitch_real_max_limit_angle)
+    // {
+    //     owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data.pitch_real_max_limit_angle;
+    // }
+    // if (owner->gimbal_ctx.data._target_pitch_angle < owner->gimbal_ctx.data.pitch_real_min_limit_angle)
+    // {
+    //     owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data.pitch_real_min_limit_angle;
+    // }
 
     auto_aim_gimbal_control(&owner->gimbal_ctx);
     send_motor_command(&owner->gimbal_ctx);

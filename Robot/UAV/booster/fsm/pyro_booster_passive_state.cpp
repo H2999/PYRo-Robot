@@ -13,9 +13,9 @@ void uav_booster_t::passive_state_t::execute(uav_booster_t *owner)
     owner->booster_ctx.data_ctx.target_fric_mps[0] = 0.0f;
     owner->booster_ctx.data_ctx.target_fric_mps[1] = 0.0f;
 
-    if (abs(owner->booster_ctx.data_ctx.current_fric_mps[0]) < 1.0f)
+    if (abs(owner->booster_ctx.data_ctx.current_fric_mps[0]) < 0.5f)
         owner->booster_ctx.data_ctx.fric_output_torque[0] = 0.0f;
-    if (abs(owner->booster_ctx.data_ctx.current_fric_mps[1]) < 1.0f)
+    if (abs(owner->booster_ctx.data_ctx.current_fric_mps[1]) < 0.5f)
         owner->booster_ctx.data_ctx.fric_output_torque[1] = 0.0f;
 
     owner->fric_control();
@@ -23,7 +23,7 @@ void uav_booster_t::passive_state_t::execute(uav_booster_t *owner)
 
     owner->booster_ctx.data_ctx.target_trigger_rad = owner->booster_ctx.data_ctx.current_trigger_rad;
 
-    if (abs(owner->booster_ctx.data_ctx.current_trigger_radps) < 0.8f)
+    if (abs(owner->booster_ctx.data_ctx.current_trigger_radps) < 0.3f)
     {
         owner->booster_ctx.data_ctx.trigger_output_torque = 0.0f;
     }

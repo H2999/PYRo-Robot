@@ -102,6 +102,8 @@ private:
 
     struct data_ctx_t
     {
+        float pitch_real_min_limit_angle_filtered;
+        float pitch_real_max_limit_angle_filtered;
         //目标角度
         float _target_yaw_angle{};
         float _target_pitch_angle{};
@@ -199,11 +201,11 @@ private:
     static constexpr float yaw_motor_max_value = 1.56f;
     static constexpr float yaw_motor_min_value = -1.16f;//右转角度减小 与imu方向相反 -2.25
 
-    // static constexpr float pitch_motor_max_value = 0.27f;
-    // static constexpr float pitch_motor_min_value = -0.77f;
+    static constexpr float pitch_motor_max_value = 0.17f;
+    static constexpr float pitch_motor_min_value = -0.57f;
 
-    static constexpr float pitch_imu_max_value = 0.5f;
-    static constexpr float pitch_imu_min_value = -0.29f;
+    // static constexpr float pitch_imu_max_value = 0.6f;
+    // static constexpr float pitch_imu_min_value = -0.29f;
 
     // static constexpr float pitch_motor_max_value = 0.47f;
     // static constexpr float pitch_motor_min_value = -0.52f;

@@ -4,7 +4,7 @@ using namespace pyro;
 
 void uav_gimbal_t::fsm_active_t::state_rc_t::enter(uav_gimbal_t *owner)
 {
-
+    // 初始化目标角度为当前IMU角度，避免上电时抖动
 }
 
 void uav_gimbal_t::fsm_active_t::state_rc_t::execute(uav_gimbal_t *owner)
@@ -33,13 +33,13 @@ void uav_gimbal_t::fsm_active_t::state_rc_t::execute(uav_gimbal_t *owner)
     //pitch目标值 归一化到-pi到pi之间
     owner->gimbal_ctx.data._target_pitch_angle += owner->gimbal_ctx.cmd->pitch_delta_angle;
 
-    if (owner->gimbal_ctx.data._target_pitch_angle > pitch_imu_max_value)
+    if (owner->gimbal_ctx.data._target_pitch_angle > owner->gimbal_ctx.data.pitch_real_max_limit_angle)
     {
-        owner->gimbal_ctx.data._target_pitch_angle = pitch_imu_max_value;
+        owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data.pitch_real_max_limit_angle;
     }
-    else if (owner->gimbal_ctx.data._target_pitch_angle < pitch_imu_min_value)
+    else if (owner->gimbal_ctx.data._target_pitch_angle < owner->gimbal_ctx.data.pitch_real_min_limit_angle)
     {
-        owner->gimbal_ctx.data._target_pitch_angle = pitch_imu_min_value;
+        owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data.pitch_real_min_limit_angle;
     }
 
     // const float pitch_error = owner->gimbal_ctx.data._target_pitch_angle - owner->gimbal_ctx.data._current_imu_pitch_angle;
