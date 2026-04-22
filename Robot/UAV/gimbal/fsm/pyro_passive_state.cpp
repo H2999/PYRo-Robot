@@ -27,7 +27,6 @@ void uav_gimbal_t::state_passive_t::execute(uav_gimbal_t *owner)
     owner->gimbal_ctx.data._target_yaw_speed = 0;
     owner->gimbal_ctx.data._target_pitch_speed = 0;
 
-    // gimbal_control(&owner->gimbal_ctx);
     send_motor_command(&owner->gimbal_ctx);
 }
 

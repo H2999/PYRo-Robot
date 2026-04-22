@@ -4,91 +4,170 @@
 #include "pyro_dr16_rc_drv.h"
 #include "pyro_vt03_rc_drv.h"
 #include "pyro_rc_base_drv.h"
-#include <../autoaim/pyro_uart_message.h>
+#include <pyro_uart_message.h>
 #include <pyro_core_config.h>
+
+#include "pyro_autoaim_drv.h"
 #include "pyro_uav_booster.h"
 
 using namespace pyro;
 
-constexpr uint32_t EVENT_BIT_FRIC_ENABLE    = (1 << 0);
-constexpr uint32_t EVENT_BIT_FRIC_DISABLE   = (1 << 1);
-constexpr uint32_t EVENT_BIT_TRIG_ENABLE    = (1 << 2);
-constexpr uint32_t EVENT_BIT_TRIG_DISABLE   = (1 << 3);
+constexpr uint32_t DR16_FRIC_ENABLE                    = (1 << 0);
+constexpr uint32_t DR16_TRIG_ENABLE                    = (1 << 1);
+constexpr uint32_t DR16_TRIG_AND_FRIC_DISABLE          = (1 << 2);
+constexpr uint32_t AUTO_MODE_TRIG_AND_FRIC_DISABLE     = (1 << 3);
+
+constexpr uint32_t VT03_FRIC_TOGGLE                    = (1 << 4);
+constexpr uint32_t VT03_TRIGGER_TOGGLE                 = (1 << 5);
+constexpr uint32_t VT03_TRIGGER_AND_FRIC_DISABLE       = (1 << 6);
 
 static TaskHandle_t booster_task_handle        = nullptr;
-static uav_booster_t *uav_booster_ptr         = nullptr;
+uav_booster_t *uav_booster_ptr         = nullptr;
 static uav_booster_cmd_t *uav_booster_cmd_ptr = nullptr;
-
-extern OperateBytes operate_bytes;
+extern autoaim_drv_t::rx_data_t rx_data;
 
 extern "C"
 {
-void booster_dr16rcmd(uint32_t notify_val)
-{
-    read_scope_lock lock(dr16_drv_t::get_lock());
-    const auto &vrc = rc_drv_t::read();
-
-    if (sw_pos_t::UP == vrc.switches.right.current_pos)
+    void booster_dr16rcmd(uint32_t notify_val)
     {
-        uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
+        read_scope_lock lock(dr16_drv_t::get_lock());
+        const auto &vrc = rc_drv_t::read();
 
-        // uav_booster_cmd_ptr->fric_enable = false;
-        uav_booster_cmd_ptr->target_fric_mps = 0.0f;
-        uav_booster_cmd_ptr->trigger_enable = false;
-        uav_booster_cmd_ptr->single_mode = false;
-        uav_booster_cmd_ptr->continue_mode = false;
-        return;
-    }
+        if (sw_pos_t::UP == vrc.switches.right.current_pos)
+        {
+            uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
 
-    if(sw_pos_t::DOWN == vrc.switches.right.current_pos)
-    {
-        uav_booster_cmd_ptr->mode      = cmd_base_t::mode_t::ACTIVE;
-    }
+            uav_booster_cmd_ptr->fric_enable = false;
+            uav_booster_cmd_ptr->trigger_enable = false;
+            uav_booster_cmd_ptr->single_mode = false;
+            uav_booster_cmd_ptr->continue_mode = false;
+            uav_booster_cmd_ptr->booster_auto_flag = false;
+            return;
+        }
 
-    if (notify_val & EVENT_BIT_FRIC_ENABLE)
-    {
-        // uav_booster_cmd_ptr->fric_enable = true;
-        uav_booster_cmd_ptr->target_fric_mps = 22.0f;
-        uav_booster_cmd_ptr->trigger_enable = true;
-        uav_booster_cmd_ptr->continue_mode = true;
-        // uav_booster_cmd_ptr->single_mode = true;
-    }
-    if (notify_val & EVENT_BIT_FRIC_DISABLE)
-    {
-        uav_booster_cmd_ptr->target_fric_mps = 0.0f;
-    }
+        uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
+        if (sw_pos_t::MID == vrc.switches.right.current_pos)
+        {
+            if (notify_val & DR16_FRIC_ENABLE)
+            {
+                uav_booster_cmd_ptr->fric_enable = true;
+                // uav_booster_cmd_ptr->single_mode = true;
+            }
+            if (notify_val & DR16_TRIG_ENABLE)
+            {
 
-    if (notify_val & EVENT_BIT_TRIG_ENABLE)
-    {
+                uav_booster_cmd_ptr->trigger_enable = true;
+                uav_booster_cmd_ptr->continue_mode = true;
+                // uav_booster_cmd_ptr->single_mode = true;
+            }
+            if (notify_val & DR16_TRIG_AND_FRIC_DISABLE)
+            {
+                uav_booster_cmd_ptr->fric_enable = false;
+                uav_booster_cmd_ptr->trigger_enable = false;
+                uav_booster_cmd_ptr->continue_mode = false;
+                // uav_booster_cmd_ptr->single_mode = false;
+            }
+        }
 
-        // uav_booster_cmd_ptr->single_mode = true;
+        if (sw_pos_t::DOWN == vrc.switches.right.current_pos)
+        {
+            uav_booster_cmd_ptr->fric_enable = true;
+            if (rx_data.fire)
+            {
+                uav_booster_cmd_ptr->booster_auto_flag = true;
+            }
+
+            if (notify_val & AUTO_MODE_TRIG_AND_FRIC_DISABLE)
+            {
+                uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
+                uav_booster_cmd_ptr->fric_enable = false;
+                uav_booster_cmd_ptr->trigger_enable = false;
+                uav_booster_cmd_ptr->booster_auto_flag = false;
+            }
+        }
     }
-    if (notify_val & EVENT_BIT_TRIG_DISABLE)
-    {
-        uav_booster_cmd_ptr->trigger_enable = false;
-        uav_booster_cmd_ptr->continue_mode = false;
-        // uav_booster_cmd_ptr->single_mode = false;
-    }
-}
 
 void booster_vt03rcmd(uint32_t notify_val)
 {
     read_scope_lock lock(dr16_drv_t::get_lock());
     const auto &vrc = rc_drv_t::read();
 
-    if (sw_pos_t::UP == vrc.switches.gear.current_pos)
+    // if (sw_pos_t::DOWN != vrc.switches.gear.current_pos)
+    // {
+    //     uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
+    //     uav_booster_cmd_ptr->fric_enable = false;
+    //     uav_booster_cmd_ptr->trigger_enable = false;
+    //     uav_booster_cmd_ptr->single_mode = false;
+    //     uav_booster_cmd_ptr->continue_mode = false;
+    //     return;
+    // }
+    //
+    // uav_booster_cmd_ptr->mode         = cmd_base_t::mode_t::ACTIVE;
+    //
+    // if (notify_val & VT03_FRIC_TOGGLE)
+    // {
+    //     uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
+    // }
+    //
+    // if (notify_val & VT03_TRIGGER_TOGGLE)
+    // {
+    //     uav_booster_cmd_ptr->trigger_enable = !uav_booster_cmd_ptr->trigger_enable;
+    //     uav_booster_cmd_ptr->continue_mode = !uav_booster_cmd_ptr->continue_mode;
+    // }
+
+    if (sw_pos_t::UP == vrc.switches.right.current_pos)
     {
         uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
-        uav_booster_cmd_ptr->target_fric_mps = 0.0f;
+
+        uav_booster_cmd_ptr->fric_enable = false;
         uav_booster_cmd_ptr->trigger_enable = false;
         uav_booster_cmd_ptr->single_mode = false;
         uav_booster_cmd_ptr->continue_mode = false;
+        uav_booster_cmd_ptr->booster_auto_flag = false;
         return;
     }
 
-    uav_booster_cmd_ptr->mode         = cmd_base_t::mode_t::ACTIVE;
-    uav_booster_cmd_ptr->target_fric_mps = 22.0f;
+    uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
+    if (sw_pos_t::MID == vrc.switches.right.current_pos)
+    {
+        if (notify_val & VT03_FRIC_TOGGLE)
+        {
+            uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
+        }
+
+        if (notify_val & VT03_TRIGGER_TOGGLE)
+        {
+            uav_booster_cmd_ptr->trigger_enable = !uav_booster_cmd_ptr->trigger_enable;
+            uav_booster_cmd_ptr->continue_mode = !uav_booster_cmd_ptr->continue_mode;
+        }
+
+        if (notify_val & VT03_TRIGGER_AND_FRIC_DISABLE)
+        {
+            uav_booster_cmd_ptr->fric_enable = false;
+            uav_booster_cmd_ptr->trigger_enable = false;
+            uav_booster_cmd_ptr->continue_mode = false;
+            // uav_booster_cmd_ptr->single_mode = false;
+        }
+    }
+
+    if (sw_pos_t::DOWN == vrc.switches.right.current_pos)
+    {
+        uav_booster_cmd_ptr->fric_enable = true;
+        if (rx_data.fire)
+        {
+            uav_booster_cmd_ptr->booster_auto_flag = true;
+        }
+
+        if (notify_val & VT03_TRIGGER_AND_FRIC_DISABLE)
+        {
+            uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
+            uav_booster_cmd_ptr->fric_enable = false;
+            uav_booster_cmd_ptr->trigger_enable = false;
+            uav_booster_cmd_ptr->booster_auto_flag = false;
+        }
+    }
 }
+
     void uav_booster_thread(void *argument)
     {
         while (true)
@@ -119,10 +198,16 @@ void booster_vt03rcmd(uint32_t notify_val)
         xTaskCreate(uav_booster_thread, "uav_booster_main_thread", 512, nullptr,
                     configMAX_PRIORITIES - 3, &booster_task_handle);
 
-        sw_broker::subscribe(&vrc.switches.left, sw_event_t::MID_TO_UP, booster_task_handle, EVENT_BIT_FRIC_ENABLE);
-        sw_broker::subscribe(&vrc.switches.left, sw_event_t::UP_TO_MID, booster_task_handle, EVENT_BIT_FRIC_DISABLE);
-        sw_broker::subscribe(&vrc.switches.left, sw_event_t::MID_TO_DOWN, booster_task_handle, EVENT_BIT_TRIG_ENABLE);
-        sw_broker::subscribe(&vrc.switches.left, sw_event_t::DOWN_TO_MID, booster_task_handle, EVENT_BIT_TRIG_DISABLE);
+        //dr16
+        sw_broker::subscribe(&vrc.switches.left, sw_event_t::MID_TO_UP, booster_task_handle, DR16_FRIC_ENABLE);
+        sw_broker::subscribe(&vrc.switches.left, sw_event_t::UP_TO_MID, booster_task_handle, DR16_TRIG_ENABLE);
+        sw_broker::subscribe(&vrc.switches.left, sw_event_t::MID_TO_DOWN, booster_task_handle, DR16_TRIG_AND_FRIC_DISABLE);
+        sw_broker::subscribe(&vrc.switches.left, sw_event_t::DOWN_TO_MID, booster_task_handle, AUTO_MODE_TRIG_AND_FRIC_DISABLE);
+
+        //vt03
+        btn_broker::subscribe(&vrc.buttons.fn_l, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_FRIC_TOGGLE);
+        btn_broker::subscribe(&vrc.buttons.trigger, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_TRIGGER_TOGGLE);
+        btn_broker::subscribe(&vrc.buttons.fn_r, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_TRIGGER_AND_FRIC_DISABLE);
 
         vTaskDelete(nullptr);
     }

@@ -17,7 +17,6 @@ struct uav_booster_cmd_t final : public cmd_base_t
 {
     bool fric_enable;
     bool trigger_enable;      // 拨弹开启
-    float target_fric_mps;   // 摩擦轮目标转速
 
     float target_trigger_radps;
     bool single_mode;
@@ -25,7 +24,7 @@ struct uav_booster_cmd_t final : public cmd_base_t
     uint8_t booster_auto_flag;
 
     uav_booster_cmd_t()
-        :fric_enable(false), target_fric_mps(0),target_trigger_radps(0),
+        :fric_enable(false),target_trigger_radps(0),
         single_mode(false), continue_mode(false),booster_auto_flag(0)
     {
     }
@@ -69,6 +68,8 @@ public:
     uav_booster_t(const uav_booster_t &) = delete;
     uav_booster_t & operator = (const uav_booster_t &) = delete;
 
+    [[nodiscard]] uint8_t get_robot_id() const;
+
 private:
     uav_booster_t();
     ~uav_booster_t() override = default;
@@ -84,9 +85,8 @@ private:
     void trigger_speed_control();
     void send_fric_command();
     void speed_control();
+    void speed_filter();
     void send_trigger_command();
-
-    void get_referee_data();
 
     static float normalize_angle(float angle);
 
@@ -119,11 +119,16 @@ private:
 
     struct shoot_data_t
     {
+        float robot_id{};
+
         float last_bullet_speed_mps{0};
         float now_bullet_speed_mps{0};
         float ball_speed[3]{0.0f};
 
-        float fric_mps = 22.0f;
+        float speed_increment{0};
+        float target_bullet_speed = 22.5f;
+
+        float fric_mps = 20.0f;
     };
 
     struct referee_ctx_t

@@ -14,7 +14,6 @@ using namespace pyro;
 
 uav_gimbal_t *gimbal_ptr               = nullptr;
 uav_gimbal_cmd_t *gimbal_cmd_ptr       = nullptr;
-
 extern autoaim_drv_t::rx_data_t rx_data;
 
 static constexpr float rc_sensitivity = 0.0025f;
@@ -70,10 +69,26 @@ void gimbalvt03cmd(uint32_t notify_val)
 
     gimbal_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
 
-    gimbal_cmd_ptr->pitch_delta_angle =
-        -vrc.axes.ry * 0.0025f - vrc.mouse_axes.y * 0.25f;
-    gimbal_cmd_ptr->yaw_delta_angle =
-        -vrc.axes.rx * 0.0025f - vrc.mouse_axes.x * 0.6f;
+    if (sw_pos_t::DOWN == vrc.switches.right.current_pos)
+    {
+        gimbal_cmd_ptr->auto_flag = true;
+
+        gimbal_cmd_ptr->yaw_target_angle = rx_data.shoot_yaw;
+        gimbal_cmd_ptr->pitch_target_angle = rx_data.shoot_pitch;
+        gimbal_cmd_ptr->yaw_delta_angle   = - vrc.axes.rx * rc_sensitivity;
+        gimbal_cmd_ptr->pitch_delta_angle = - vrc.axes.ry * rc_sensitivity;
+    }
+    if (sw_pos_t::MID == vrc.switches.right.current_pos)
+    {
+        gimbal_cmd_ptr->auto_flag = false;
+
+        gimbal_cmd_ptr->yaw_delta_angle   = - vrc.axes.rx * rc_sensitivity;
+        gimbal_cmd_ptr->pitch_delta_angle = - vrc.axes.ry * rc_sensitivity;
+    }
+    // gimbal_cmd_ptr->pitch_delta_angle =
+    //     -vrc.axes.ry * 0.0025f - vrc.mouse_axes.y * 0.25f;
+    // gimbal_cmd_ptr->yaw_delta_angle =
+    //     -vrc.axes.rx * 0.0025f - vrc.mouse_axes.x * 0.6f;
 }
 
 void uav_gimbal_main_thread(void *argument)
@@ -106,10 +121,6 @@ void uav_gimbal_init(void *argument)
 
     xTaskCreate(uav_gimbal_main_thread, "uav_gimbal_main_thread", 256, nullptr,
                 configMAX_PRIORITIES - 3, nullptr);
-
-    // auto &vrc = rc_drv_t::read();
-    // sw_broker::subscribe(&vrc.switches.right, sw_event_t::UP_TO_MID, gimbal_task_handle, EVENT_BIT_MOTOR_ENABLE);
-    // sw_broker::subscribe(&vrc.switches.right, sw_event_t::MID_TO_UP, gimbal_task_handle, EVENT_BIT_MOTOR_DISABLE);
 
     vTaskDelete(nullptr);
 }

@@ -26,7 +26,7 @@ struct uav_gimbal_cmd_t final : cmd_base_t
     }
 };
 
- //仅初始化一次的变量
+//仅初始化一次的变量
 struct uav_gimbal_cfg_t
 {
     struct motor_ctx_t
@@ -38,13 +38,17 @@ struct uav_gimbal_cfg_t
 
     struct pid_ctx_t
     {
+        //遥控器pid
         pid_t *yaw_position_pid{nullptr};
         pid_t *pitch_position_pid{nullptr};
-        pid_t *roll_position_pid{nullptr};
-
         pid_t *yaw_speed_pid{nullptr};
         pid_t *pitch_speed_pid{nullptr};
-        pid_t *roll_speed_pid{nullptr};
+
+        //自瞄pid
+        pid_t *auto_yaw_position_pid{nullptr};
+        pid_t *auto_pitch_position_pid{nullptr};
+        pid_t *auto_yaw_speed_pid{nullptr};
+        pid_t *auto_pitch_speed_pid{nullptr};
     };
 
     motor_ctx_t motor_ctx;
@@ -58,6 +62,7 @@ class uav_gimbal_t final : public module_base_t<uav_gimbal_t,uav_gimbal_cmd_t,ua
     friend class jcom_drv_t;
 
     struct data_ctx_t;
+    struct feedforward_data_ctx_t;
     struct gimbal_ctx_t;
     struct gimbal_auto_ctx_t;
 
@@ -65,10 +70,7 @@ public:
     uav_gimbal_t(const uav_gimbal_t &)            = delete;
     uav_gimbal_t &operator=(const uav_gimbal_t &) = delete;
 
-    float get_current_yaw_angle() const;
-    float get_current_pitch_angle() const;
-    float get_current_roll_angle() const;
-
+    ins_drv_t *gimbal_ins;
 private:
     uav_gimbal_t();
     ~uav_gimbal_t() override = default;
@@ -79,9 +81,24 @@ private:
     void _fsm_execute() override;
 
     //派生方法
-    static void gimbal_control(gimbal_ctx_t *ctx);
+    static void rc_gimbal_control(gimbal_ctx_t *ctx);
+    static void auto_aim_gimbal_control(gimbal_ctx_t *ctx);
     static void send_motor_command(const gimbal_ctx_t *ctx);
     static void normalize_angle(float& angle);
+    void feedforward_compensation(float *yaw_compensation,float *pitch_compensation);
+
+    struct feedforward_data_ctx_t
+    {
+        float last_yaw_target_angle{};
+        float now_yaw_target_angle{};
+
+        float last_pitch_target_angle{};
+        float now_pitch_target_angle{};
+
+        float dt = 0.001f;
+        float yaw_kff = 1.0f;
+        float pitch_kff = 1.0f;
+    };
 
     struct data_ctx_t
     {
@@ -106,6 +123,7 @@ private:
         float _output_pitch_torque{};
 
         float pitch_motor_angle{};
+        float pitch_motor_speed{};
         float yaw_motor_angle{};
 
         float yaw_real_max_limit_angle{};
@@ -128,13 +146,13 @@ private:
     struct gimbal_ctx_t
     {
         uav_gimbal_cfg_t cfg;
+        feedforward_data_ctx_t feedforward_data;
         data_ctx_t data{};
         uav_gimbal_cmd_t *cmd{};
         gimbal_auto_ctx_t auto_ctx{};
     };
 
     gimbal_ctx_t gimbal_ctx;
-    ins_drv_t *gimbal_ins;
 
     struct state_passive_t final : state_t<uav_gimbal_t>
     {
@@ -159,8 +177,8 @@ private:
             void exit(uav_gimbal_t *owner) override;
 
         private:
-            float last_pitch_target_angle{};
-            float now_pitch_target_angle{};
+            float yaw_ff{};
+            float pitch_ff{};
         };
 
         void on_enter(uav_gimbal_t *owner) override;
@@ -181,11 +199,17 @@ private:
     static constexpr float yaw_motor_max_value = 1.56f;
     static constexpr float yaw_motor_min_value = -1.16f;//右转角度减小 与imu方向相反 -2.25
 
-    static constexpr float pitch_max_value = 0.734365752f;
-    static constexpr float pitch_min_value = -0.362505883f;
+    // static constexpr float pitch_motor_max_value = 0.27f;
+    // static constexpr float pitch_motor_min_value = -0.77f;
+
+    static constexpr float pitch_imu_max_value = 0.5f;
+    static constexpr float pitch_imu_min_value = -0.29f;
+
+    // static constexpr float pitch_motor_max_value = 0.47f;
+    // static constexpr float pitch_motor_min_value = -0.52f;
 
     static constexpr float YAW_OFFSET_RAD = 2.60700035f;
-    static constexpr float PITCH_OFFSET_RAD = -0.2319f;
+    static constexpr float PITCH_OFFSET_RAD = -0.2f;
 
     // typedef struct {
     //     float r;      // 快速因子：决定追踪的加速度（r 越大，起步越猛）

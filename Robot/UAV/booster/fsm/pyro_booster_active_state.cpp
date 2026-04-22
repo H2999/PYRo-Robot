@@ -12,21 +12,27 @@ void uav_booster_t::fsm_active_t::on_enter(uav_booster_t *owner)
     change_state(&middle_state);
 }
 
-    //卡尔曼滤波系数
-
 void uav_booster_t::fsm_active_t::on_execute(uav_booster_t *owner)
 {
-    owner->speed_control();
+    if (owner->booster_ctx.cmd->fric_enable)
+    {
+        owner->speed_control();
 
-    owner->booster_ctx.data_ctx.target_fric_mps[0] = owner->booster_ctx.shoot_data.fric_mps;
-    owner->booster_ctx.data_ctx.target_fric_mps[1] = -owner->booster_ctx.shoot_data.fric_mps;
+        owner->booster_ctx.data_ctx.target_fric_mps[0] = owner->booster_ctx.shoot_data.fric_mps;
+        owner->booster_ctx.data_ctx.target_fric_mps[1] = -owner->booster_ctx.shoot_data.fric_mps;
+    }
+    else
+    {
+        owner->booster_ctx.data_ctx.target_fric_mps[0] = 0.0f;
+        owner->booster_ctx.data_ctx.target_fric_mps[1] = 0.0f;
+    }
 
     owner->fric_control();
     owner->send_fric_command();
 
-    constexpr float STALL_TIME_THRESHOLD   = 150.0f; // 堵转时间阈值
-    constexpr float STALL_TORQUE_THRESHOLD = 2.5f;   // 堵转扭矩阈值
-    constexpr float STALL_SPEED_THRESHOLD  = 0.2f;   // 堵转速度阈值
+    constexpr float STALL_TIME_THRESHOLD   = 300.0f; // 堵转时间阈值
+    constexpr float STALL_TORQUE_THRESHOLD = 5.0f;   // 堵转扭矩阈值
+    constexpr float STALL_SPEED_THRESHOLD  = 0.5f;   // 堵转速度阈值
 
     static float stall_start_time          = 0.0f;
     if (abs(owner->booster_ctx.data_ctx.current_trigger_radps) < STALL_SPEED_THRESHOLD &&
@@ -48,7 +54,7 @@ void uav_booster_t::fsm_active_t::on_execute(uav_booster_t *owner)
                 {
                     reset();
                 }
-                stall_start_time = 0.0f;
+                stall_start_time = 0.0f; // 重置堵转计时
             }
         }
     }

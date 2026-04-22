@@ -1,4 +1,7 @@
 #include "pyro_uav_gimbal.h"
+
+#include <bits/stl_algo.h>
+
 #include "pyro_dji_motor_drv.h"
 #include "pyro_dm_motor_drv.h"
 #include "pyro_ins.h"
@@ -22,17 +25,29 @@ status_t uav_gimbal_t::_init()
 
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_position_range(-PI, PI);
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_rotate_range(-30, 30);
-    static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_torque_range(-10, 10);
+    static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_torque_range(-7, 7);
 
-    gimbal_ctx.cfg.pid_ctx.yaw_position_pid = new pid_t(18.38f,0.12f,0.0005,1.9f,
-                8.0f,60,25,4);
-    gimbal_ctx.cfg.pid_ctx.pitch_position_pid = new pid_t(10.88f,0.028f,0.00048f,0.8f,
-                5.0f,60,35,4);
+    //遥控器pid
+    gimbal_ctx.cfg.pid_ctx.yaw_position_pid = new pid_t(21.0f,0.01f,0.000f,1.0f,
+                15.0f,60,30,4);
+    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(2.85f,0.001f,0.0002f,0.5f,
+                3.0f,30,20,4);
 
-    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(4.15f,0.482f,0.00095f,1.0f,
-                3.0f,60,20,4);
-    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid = new pid_t(1.162f,0.042f,0.00064f,1.6f,
+    gimbal_ctx.cfg.pid_ctx.pitch_position_pid = new pid_t(15.6f,0.012f,0.0006f,0.8f,
                 10.0f,40,20,4);
+    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid = new pid_t(1.022f,0.000838f,0.0004f,0.8f,
+                7.0f,40,20,4);
+
+
+    //自瞄pid
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(17.68f,0.81f,0.0004,1.8f,
+                8.0f,90,50,4);
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(15.28f,0.285f,0.00029f,1.6f,
+                5.0f,80,50,4);
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(4.185f,0.782f,0.00075f,1.8f,
+                3.0f,100,60,4);
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(1.18f,0.195f,0.00024f,1.6f,
+                7.0f,80,50,4);
 
     return PYRO_OK;
 }
@@ -48,9 +63,13 @@ void uav_gimbal_t::_update_feedback()
      gimbal_ctx.cfg.motor_ctx.yaw_motor->get_current_position() - YAW_OFFSET_RAD;
     normalize_angle(current_yaw_angle);
     gimbal_ctx.data.yaw_motor_angle = current_yaw_angle;
-    // gimbal_ctx.data.yaw_motor_angle = gimbal_ctx.cfg.motor_ctx.yaw_motor->get_current_position();
 
-    gimbal_ctx.data.pitch_motor_angle = gimbal_ctx.cfg.motor_ctx.pitch_motor->get_current_position();
+    // gimbal_ctx.data.pitch_motor_angle = gimbal_ctx.cfg.motor_ctx.pitch_motor->get_current_position();
+    float current_pitch_angle =
+        gimbal_ctx.cfg.motor_ctx.pitch_motor->get_current_position() - PITCH_OFFSET_RAD;
+    normalize_angle(current_pitch_angle);
+    gimbal_ctx.data.pitch_motor_angle = current_pitch_angle;
+    gimbal_ctx.data.pitch_motor_speed = gimbal_ctx.cfg.motor_ctx.pitch_motor->get_current_rotate();
 
     //读取IMU获得当前角度
     gimbal_ins->get_rads_n(&gimbal_ctx.data._current_imu_yaw_angle,
@@ -62,8 +81,13 @@ void uav_gimbal_t::_update_feedback()
                                           &gimbal_ctx.data._current_imu_roll_speed);
 
     //对current_imu_angle作归一化
+    //因为电机安装位置的原因 yaw轴电机和imu角度减小的方向相反 Motor ↑  IMU ↓ 所以和是一个常数
     gimbal_ctx.data.yaw_real_min_limit_angle = gimbal_ctx.data._current_imu_yaw_angle + gimbal_ctx.data.yaw_motor_angle - yaw_motor_max_value;
     gimbal_ctx.data.yaw_real_max_limit_angle = gimbal_ctx.data._current_imu_yaw_angle + gimbal_ctx.data.yaw_motor_angle - yaw_motor_min_value;
+
+    //pitch轴电机角度减小的方向和imu角度减小的方向相同 Motor ↑ IMU ↑ 所以二者的差是一个常数
+    // gimbal_ctx.data.pitch_real_min_limit_angle = gimbal_ctx.data._current_imu_pitch_angle - gimbal_ctx.data.pitch_motor_angle + pitch_motor_min_value;
+    // gimbal_ctx.data.pitch_real_max_limit_angle = gimbal_ctx.data._current_imu_pitch_angle - gimbal_ctx.data.pitch_motor_angle + pitch_motor_max_value;
 }
 
 void uav_gimbal_t::_fsm_execute()
@@ -78,7 +102,7 @@ void uav_gimbal_t::_fsm_execute()
     main_fsm.execute(this);
 }
 
-void uav_gimbal_t::gimbal_control(gimbal_ctx_t *ctx)
+void uav_gimbal_t::rc_gimbal_control(gimbal_ctx_t *ctx)
 {
     ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.yaw_position_pid->calculate(
             ctx->data._target_yaw_angle,  ctx->data._current_imu_yaw_angle);
@@ -89,6 +113,18 @@ void uav_gimbal_t::gimbal_control(gimbal_ctx_t *ctx)
     ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.yaw_speed_pid->calculate(
             ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
 
+    constexpr float YAW_DEADBAND_RADPS = 0.04f;
+
+    if (ctx->data._target_yaw_speed > YAW_DEADBAND_RADPS)
+    {
+        ctx->data._output_yaw_torque += -0.1f;
+    }
+    else if (ctx->data._target_yaw_speed < -YAW_DEADBAND_RADPS)
+    {
+        ctx->data._output_yaw_torque += 0.1f;
+    }
+
+    ctx->data._output_yaw_torque = std::clamp(ctx->data._output_yaw_torque, -3.0f, 3.0f);
     float angle = ctx->cfg.motor_ctx.pitch_motor->get_current_position();
     // 拟合后的动态系数：k = 0.9167 * angle - 0.175(用最小二乘法拟合的)
     // 这样当 angle 减小时（低头），系数会变得更负，补偿更强
@@ -100,8 +136,27 @@ void uav_gimbal_t::gimbal_control(gimbal_ctx_t *ctx)
     // 最终输出
     ctx->data.gravity_compensate = ctx->data.gravity_k * cosf(angle);
 
+    // ctx->data._output_pitch_torque = ctx->data.gravity_compensate;
     ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.pitch_speed_pid->calculate(
         ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed) + ctx->data.gravity_compensate;
+
+    // ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.pitch_speed_pid->calculate(
+    //     ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed);
+}
+
+void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
+{
+    ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.auto_yaw_position_pid->calculate(
+            ctx->data._target_yaw_angle,  ctx->data._current_imu_yaw_angle);
+
+    ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.auto_pitch_position_pid->calculate(
+             ctx->data._target_pitch_angle, ctx->data._current_imu_pitch_angle);
+
+    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.auto_yaw_speed_pid->calculate(
+            ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
+
+    ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.pitch_speed_pid->calculate(
+        ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed);
 }
 
 void uav_gimbal_t::send_motor_command(const gimbal_ctx_t *ctx)
@@ -110,7 +165,7 @@ void uav_gimbal_t::send_motor_command(const gimbal_ctx_t *ctx)
      ctx->cfg.motor_ctx.yaw_motor->send_torque(0);
 
      ctx->cfg.motor_ctx.pitch_motor->send_torque(ctx->data._output_pitch_torque);
-    // ctx->motor.pitch_motor->send_torque(0);
+    // ctx->cfg.motor_ctx.pitch_motor->send_torque(0);
 }
 
 void uav_gimbal_t::normalize_angle(float& angle)
@@ -125,19 +180,19 @@ void uav_gimbal_t::normalize_angle(float& angle)
     }
 }
 
-float uav_gimbal_t::get_current_yaw_angle() const
+//计算垂直速度 然后加入速度环前馈
+void uav_gimbal_t::feedforward_compensation(float *yaw_compensation,float *pitch_compensation)
 {
-    return gimbal_ctx.data._current_imu_yaw_angle;
-}
+    gimbal_ctx.feedforward_data.last_yaw_target_angle = gimbal_ctx.feedforward_data.now_yaw_target_angle;
+    gimbal_ctx.feedforward_data.now_yaw_target_angle = gimbal_ctx.cmd->yaw_target_angle;
 
-float uav_gimbal_t::get_current_pitch_angle() const
-{
-    return gimbal_ctx.data._current_imu_pitch_angle;
-}
+    gimbal_ctx.feedforward_data.last_pitch_target_angle = gimbal_ctx.feedforward_data.now_pitch_target_angle;
+    gimbal_ctx.feedforward_data.now_pitch_target_angle = gimbal_ctx.cmd->pitch_target_angle;
 
-float uav_gimbal_t::get_current_roll_angle() const
-{
-    return gimbal_ctx.data._current_imu_roll_angle;
-}
+     *yaw_compensation = (gimbal_ctx.feedforward_data.now_yaw_target_angle -
+     gimbal_ctx.feedforward_data.last_yaw_target_angle) / gimbal_ctx.feedforward_data.dt * gimbal_ctx.feedforward_data.yaw_kff;
 
+    *pitch_compensation = (gimbal_ctx.feedforward_data.now_pitch_target_angle -
+     gimbal_ctx.feedforward_data.last_pitch_target_angle) / gimbal_ctx.feedforward_data.dt * gimbal_ctx.feedforward_data.pitch_kff;
+}
 }

@@ -19,6 +19,7 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
 //     kf->kf_update(owner->gimbal_ctx.cmd->yaw_target_angle);
 //     const float ff_angle = kf->get_v();
 // #endif
+    owner->feedforward_compensation(&yaw_ff,&pitch_ff);
 
     //没识别到目标的时候用遥控器控制 识别到目标的时候由自瞄控制
     if (owner->gimbal_ctx.cmd->yaw_target_angle > 80.0f || owner->gimbal_ctx.cmd->yaw_target_angle == 0.0f)
@@ -28,6 +29,7 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
     else
     {
         owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.cmd->yaw_target_angle;
+        owner->gimbal_ctx.data._target_yaw_speed += yaw_ff;
 // #if test_gimbal
 //         owner->gimbal_ctx.data._target_yaw_speed += ff_angle * 0.5f;
 // #endif
@@ -42,15 +44,6 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.data.yaw_real_min_limit_angle;
     }
 
-#if test_gimbal
-    //计算垂直速度 然后加入速度环前馈
-    last_pitch_target_angle = now_pitch_target_angle;
-    now_pitch_target_angle = owner->gimbal_ctx.cmd->pitch_target_angle;
-    constexpr float dt = 0.001f;
-    constexpr float Kff = 0.5f;
-    float feedforward = (now_pitch_target_angle - last_pitch_target_angle) / dt;
-#endif
-
     if (owner->gimbal_ctx.cmd->pitch_target_angle > 80.0f || owner->gimbal_ctx.cmd->pitch_target_angle == 0.0f)
     {
         owner->gimbal_ctx.data._target_pitch_angle += owner->gimbal_ctx.cmd->pitch_delta_angle;
@@ -58,12 +51,19 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
     else
     {
         owner->gimbal_ctx.data._target_pitch_angle = - owner->gimbal_ctx.cmd->pitch_target_angle;
-#if test_gimbal
-        owner->gimbal_ctx.data._target_pitch_speed += feedforward * Kff;
-#endif
+        owner->gimbal_ctx.data._target_pitch_speed += pitch_ff;
     }
 
-    gimbal_control(&owner->gimbal_ctx);
+    if (owner->gimbal_ctx.data._target_pitch_angle > owner->gimbal_ctx.data.pitch_real_max_limit_angle)
+    {
+        owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data.pitch_real_max_limit_angle;
+    }
+    if (owner->gimbal_ctx.data._target_pitch_angle < owner->gimbal_ctx.data.pitch_real_min_limit_angle)
+    {
+        owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data.pitch_real_min_limit_angle;
+    }
+
+    auto_aim_gimbal_control(&owner->gimbal_ctx);
     send_motor_command(&owner->gimbal_ctx);
 }
 
