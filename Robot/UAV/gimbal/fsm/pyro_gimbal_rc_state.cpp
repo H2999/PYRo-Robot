@@ -5,6 +5,8 @@ using namespace pyro;
 void uav_gimbal_t::fsm_active_t::state_rc_t::enter(uav_gimbal_t *owner)
 {
     // 初始化目标角度为当前IMU角度，避免上电时抖动
+    owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.data._current_imu_yaw_angle;
+    owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data._current_imu_pitch_angle;
 }
 
 void uav_gimbal_t::fsm_active_t::state_rc_t::execute(uav_gimbal_t *owner)
@@ -56,11 +58,6 @@ void uav_gimbal_t::fsm_active_t::state_rc_t::execute(uav_gimbal_t *owner)
     send_motor_command(&owner->gimbal_ctx);
 }
 
-uint32_t ab;
-
 void uav_gimbal_t::fsm_active_t::state_rc_t::exit(uav_gimbal_t *owner)
 {
-    ab++;
 }
-
-

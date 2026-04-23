@@ -31,12 +31,13 @@ void uav_booster_t::fsm_active_t::state_middle_t::execute(uav_booster_t *owner)
 
     owner->trigger_position_control();
 
+    // // 单发完成后到位就不再继续输出扭矩，避免小范围来回追踪
     // if (abs(owner->booster_ctx.data_ctx.current_trigger_radps) < 0.1f &&
-    //     abs(owner->booster_ctx.data_ctx.target_trigger_rad - owner->booster_ctx.data_ctx.current_trigger_rad) < 0.3f)
+    //     abs(owner->booster_ctx.data_ctx.target_trigger_rad - owner->booster_ctx.data_ctx.current_trigger_rad) < 0.05f)
     // {
     //     owner->booster_ctx.data_ctx.trigger_output_torque = 0.0f;
     // }
-
+    //
     owner->send_trigger_command();
 
 }
