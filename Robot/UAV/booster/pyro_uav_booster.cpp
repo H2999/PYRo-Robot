@@ -35,9 +35,9 @@ status_t uav_booster_t::_init()
 
     //拨弹盘pid初始化
     booster_ctx.cfg.pid_cfg.trigger_position_pid =
-        new pid_t(6.8f, 0.00048f, 0.00023f, 1.0f, 10.0f, 60, 30, 4);
+        new pid_t(9.8f, 0.0006f, 0.00043f, 1.0f, 20.0f, 60, 30, 4);
     booster_ctx.cfg.pid_cfg.trigger_speed_pid =
-        new pid_t(3.85f, 0.00055f, 0.00033f, 1.0f, 20.0f, 60, 30, 4);
+        new pid_t(4.5f, 0.0004f, 0.0003f, 1.0f, 10.0f, 60, 30, 4);
 
     booster_ctx.cfg.pid_cfg.shoot_closed_pid = new pid_t(0.0192f, 0.0f, 0.00004f, 0.0f, 0.5f);
     return PYRO_OK;
@@ -175,8 +175,8 @@ void uav_booster_t::speed_control()
 
         booster_ctx.shoot_data.fric_mps += booster_ctx.shoot_data.speed_increment;
 
-        constexpr float MAX_SPEED = 24.5f;
-        constexpr float MIN_SPEED = 16.5f;
+        constexpr float MAX_SPEED = 23.5f;
+        constexpr float MIN_SPEED = 17.5f;
         if (booster_ctx.shoot_data.fric_mps > MAX_SPEED){booster_ctx.shoot_data.fric_mps = MAX_SPEED;}
         if (booster_ctx.shoot_data.fric_mps < MIN_SPEED){booster_ctx.shoot_data.fric_mps = MIN_SPEED;}
         booster_ctx.shoot_data.last_bullet_speed_mps = booster_ctx.shoot_data.now_bullet_speed_mps;

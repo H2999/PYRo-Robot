@@ -85,7 +85,7 @@ private:
     static void auto_aim_gimbal_control(gimbal_ctx_t *ctx);
     static void send_motor_command(const gimbal_ctx_t *ctx);
     static void normalize_angle(float& angle);
-    void feedforward_compensation(float *yaw_compensation,float *pitch_compensation);
+    void feedforward_compensation();
 
     struct feedforward_data_ctx_t
     {
@@ -96,8 +96,13 @@ private:
         float now_pitch_target_angle{};
 
         float dt = 0.001f;
-        float yaw_kff = 1.0f;
-        float pitch_kff = 1.0f;
+        float yaw_kff = 0.2f;
+        float pitch_kff = 0.2f;
+
+        float filtered_yaw_v;
+        float filtered_pitch_v;
+        float yaw_ff{};
+        float pitch_ff{};
     };
 
     struct data_ctx_t
@@ -177,10 +182,10 @@ private:
             void enter(uav_gimbal_t *owner) override;
             void execute(uav_gimbal_t *owner) override;
             void exit(uav_gimbal_t *owner) override;
-
         private:
-            float yaw_ff{};
-            float pitch_ff{};
+            float _last_filtered_yaw = 0.0f;
+            float _last_filtered_pitch = 0.0f;
+            const float _alpha = 0.3f;
         };
 
         void on_enter(uav_gimbal_t *owner) override;
@@ -192,23 +197,18 @@ private:
         state_auto_t auto_state;
     };
 
-
     // 状态实例
     state_passive_t state_passive;
     fsm_active_t state_active;
     fsm_t<uav_gimbal_t> main_fsm;
 
-    static constexpr float yaw_motor_max_value = 1.56f;
-    static constexpr float yaw_motor_min_value = -1.16f;//右转角度减小 与imu方向相反 -2.25
+    static constexpr float yaw_motor_max_value = 1.5f;
+    static constexpr float yaw_motor_min_value = -1.1f;
 
-    static constexpr float pitch_motor_max_value = 0.17f;
-    static constexpr float pitch_motor_min_value = -0.57f;
-
-    // static constexpr float pitch_imu_max_value = 0.6f;
-    // static constexpr float pitch_imu_min_value = -0.29f;
-
-    // static constexpr float pitch_motor_max_value = 0.47f;
-    // static constexpr float pitch_motor_min_value = -0.52f;
+    // static constexpr float pitch_motor_max_value = 0.35f;
+    // static constexpr float pitch_motor_min_value = -0.45f;
+    static constexpr float pitch_max_value = 0.5f;
+    static constexpr float pitch_min_value = -0.2f;
 
     static constexpr float YAW_OFFSET_RAD = 2.60700035f;
     static constexpr float PITCH_OFFSET_RAD = -0.2f;

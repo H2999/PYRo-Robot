@@ -126,9 +126,9 @@ private:
         float ball_speed[3]{0.0f};
 
         float speed_increment{0};
-        float target_bullet_speed = 22.5f;
+        float target_bullet_speed = 23.0f;
 
-        float fric_mps = 20.0f;
+        float fric_mps = 20.7f;
     };
 
     struct referee_ctx_t
