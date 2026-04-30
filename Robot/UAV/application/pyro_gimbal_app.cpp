@@ -17,6 +17,7 @@ uav_gimbal_cmd_t *gimbal_cmd_ptr       = nullptr;
 extern autoaim_drv_t::rx_data_t rx_data;
 
 static constexpr float rc_sensitivity = 0.0025f;
+//位控相当于对速度进行积分 所以是target+=current * delta t 这里直接把灵敏度和delta乘到一起了写成了 rc_sensitivity
 
 extern "C"
 {
@@ -41,6 +42,8 @@ void gimbal_dr16cmd(uint32_t notify_val)
 
         gimbal_cmd_ptr->yaw_target_angle = rx_data.shoot_yaw;
         gimbal_cmd_ptr->pitch_target_angle = rx_data.shoot_pitch;
+        //这里加负号是因为遥控器映射的是角度 与目标角度作闭环的是从imu中获取的角度
+        //但是由于imu安装位置与正常的前x左y上z都相反 所以遥控器发相反的信号才能保持坐标系和imu一致
         gimbal_cmd_ptr->yaw_delta_angle   = - vrc.axes.rx * rc_sensitivity;
         gimbal_cmd_ptr->pitch_delta_angle = - vrc.axes.ry * rc_sensitivity;
     }

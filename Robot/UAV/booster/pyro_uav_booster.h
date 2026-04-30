@@ -126,7 +126,7 @@ private:
         float ball_speed[3]{0.0f};
 
         float speed_increment{0};
-        float target_bullet_speed = 23.0f;
+        float target_bullet_speed = 23.5f;
 
         float fric_mps = 20.7f;
     };

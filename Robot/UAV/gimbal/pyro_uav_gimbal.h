@@ -89,6 +89,10 @@ private:
 
     struct feedforward_data_ctx_t
     {
+        float last_raw_yaw{};
+        float last_raw_pitch{};
+        float now_yaw_target_energy{};
+
         float last_yaw_target_angle{};
         float now_yaw_target_angle{};
 
@@ -96,8 +100,8 @@ private:
         float now_pitch_target_angle{};
 
         float dt = 0.001f;
-        float yaw_kff = 0.2f;
-        float pitch_kff = 0.2f;
+        float yaw_kff = 0.5f;
+        float pitch_kff = 0.5f;
 
         float filtered_yaw_v;
         float filtered_pitch_v;
@@ -139,7 +143,6 @@ private:
         float pitch_real_max_limit_angle{};
         float pitch_real_min_limit_angle{};
 
-        float gravity_k{};
         float gravity_compensate{};
     };
 
@@ -205,13 +208,10 @@ private:
     static constexpr float yaw_motor_max_value = 1.5f;
     static constexpr float yaw_motor_min_value = -1.1f;
 
-    // static constexpr float pitch_motor_max_value = 0.35f;
-    // static constexpr float pitch_motor_min_value = -0.45f;
-    static constexpr float pitch_max_value = 0.5f;
-    static constexpr float pitch_min_value = -0.2f;
+    static constexpr float pitch_max_value = 0.39f;
+    static constexpr float pitch_min_value = -0.25f;
 
     static constexpr float YAW_OFFSET_RAD = 2.60700035f;
-    static constexpr float PITCH_OFFSET_RAD = -0.2f;
 
     // typedef struct {
     //     float r;      // 快速因子：决定追踪的加速度（r 越大，起步越猛）

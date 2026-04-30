@@ -40,7 +40,7 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
     }
     else
     {
-        owner->gimbal_ctx.data._target_yaw_angle = filtered_yaw;// + owner->gimbal_ctx.feedforward_data.filtered_yaw_v * predict_time;
+        owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.cmd->yaw_target_angle;// + owner->gimbal_ctx.feedforward_data.filtered_yaw_v * predict_time;
         _last_filtered_yaw = filtered_yaw;
     }
     //限位
@@ -53,29 +53,24 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.data.yaw_real_min_limit_angle;
     }
 
-    if (owner->gimbal_ctx.data.pitch_motor_angle > 0.02f)
-    {
-        owner->gimbal_ctx.cmd->pitch_delta_angle = 0.0f;
-    }
-
     if (owner->gimbal_ctx.cmd->pitch_target_angle > 80.0f || owner->gimbal_ctx.cmd->pitch_target_angle == 0.0f)
     {
         owner->gimbal_ctx.data._target_pitch_angle += owner->gimbal_ctx.cmd->pitch_delta_angle;
     }
     else
     {
-        owner->gimbal_ctx.data._target_pitch_angle = - filtered_pitch;// + owner->gimbal_ctx.feedforward_data.filtered_pitch_v * predict_time;
+        owner->gimbal_ctx.data._target_pitch_angle = - owner->gimbal_ctx.cmd->pitch_target_angle;// + owner->gimbal_ctx.feedforward_data.filtered_pitch_v * predict_time;
         _last_filtered_pitch = filtered_pitch;
     }
 
-    if (owner->gimbal_ctx.data._target_pitch_angle > pitch_max_value)
-    {
-        owner->gimbal_ctx.data._target_pitch_angle = pitch_max_value;
-    }
-    else if (owner->gimbal_ctx.data._target_pitch_angle < pitch_min_value)
-    {
-        owner->gimbal_ctx.data._target_pitch_angle = pitch_min_value;
-    }
+    // if (owner->gimbal_ctx.data._target_pitch_angle > pitch_max_value)
+    // {
+    //     owner->gimbal_ctx.data._target_pitch_angle = pitch_max_value;
+    // }
+    // else if (owner->gimbal_ctx.data._target_pitch_angle < pitch_min_value)
+    // {
+    //     owner->gimbal_ctx.data._target_pitch_angle = pitch_min_value;
+    // }
 
     auto_aim_gimbal_control(&owner->gimbal_ctx);
     send_motor_command(&owner->gimbal_ctx);

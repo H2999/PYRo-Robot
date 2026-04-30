@@ -23,14 +23,11 @@ status_t uav_booster_t::_init()
     booster_ctx.cfg.motor_cfg.trigger_wheel = new dji_m2006_motor_drv_t(dji_motor_tx_frame_t::id_4,can_hub_t::can1);
 
     //摩擦轮pid初始化
-    booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(6.72f, 0.058f, 0.018f,0.75f,
-        20, 30, 15, 4);
-    booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(6.72f, 0.058f, 0.018f,0.75f,
-        20, 30, 15, 4);
 
-    booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(8.0f, 0.0f, 0.007f,1.0f,
+
+    booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(8.0f, 0.0f, 0.007f,0.0f,
        20, 60, 15, 4);
-    booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(7.6f, 0.0f, 0.007f,1.0f,
+    booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(7.6f, 0.0f, 0.007f,0.0f,
         20, 60, 15, 4);
 
     //拨弹盘pid初始化
@@ -39,7 +36,7 @@ status_t uav_booster_t::_init()
     booster_ctx.cfg.pid_cfg.trigger_speed_pid =
         new pid_t(4.5f, 0.0004f, 0.0003f, 1.0f, 10.0f, 60, 30, 4);
 
-    booster_ctx.cfg.pid_cfg.shoot_closed_pid = new pid_t(0.0192f, 0.0f, 0.00004f, 0.0f, 0.5f);
+    booster_ctx.cfg.pid_cfg.shoot_closed_pid = new pid_t(0.0172f, 0.0f, 0.00004f, 0.0f, 0.5f);
     return PYRO_OK;
 }
 

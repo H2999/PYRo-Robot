@@ -4,26 +4,28 @@ using namespace pyro;
 
 void uav_gimbal_t::fsm_active_t::state_rc_t::enter(uav_gimbal_t *owner)
 {
+    owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.data._current_imu_yaw_angle;
+    owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data._current_imu_pitch_angle;
 }
 
 void uav_gimbal_t::fsm_active_t::state_rc_t::execute(uav_gimbal_t *owner)
 {
-    static float current_pitch_kp = 0.0f;
-    float target_kp = 18.0f;
-    float ramp_speed = 0.004f;
-
-    if (current_pitch_kp < target_kp)
-    {
-        current_pitch_kp += ramp_speed;
-    }
-    else
-    {
-        current_pitch_kp = target_kp;
-    }
-
-    // 更新 PID 参数
-    owner->gimbal_ctx.cfg.pid_ctx.pitch_position_pid->set_gains(
-        current_pitch_kp, 0.01f, 0.004f);
+    // static float current_pitch_kp = 0.0f;
+    // float target_kp = 18.0f;
+    // float ramp_speed = 0.004f;
+    //
+    // if (current_pitch_kp < target_kp)
+    // {
+    //     current_pitch_kp += ramp_speed;
+    // }
+    // else
+    // {
+    //     current_pitch_kp = target_kp;
+    // }
+    //
+    // // 更新 PID 参数
+    // owner->gimbal_ctx.cfg.pid_ctx.pitch_position_pid->set_gains(
+    //     current_pitch_kp, 0.01f, 0.004f);
 
     owner->gimbal_ctx.data._target_yaw_angle += owner->gimbal_ctx.cmd->yaw_delta_angle;
 
@@ -47,10 +49,6 @@ void uav_gimbal_t::fsm_active_t::state_rc_t::execute(uav_gimbal_t *owner)
 
 
     //pitch目标值 归一化到-pi到pi之间
-    if (owner->gimbal_ctx.data.pitch_motor_angle > 0.02f)
-    {
-        owner->gimbal_ctx.cmd->pitch_delta_angle = 0.0f;
-    }
     owner->gimbal_ctx.data._target_pitch_angle += owner->gimbal_ctx.cmd->pitch_delta_angle;
 
     if (owner->gimbal_ctx.data._target_pitch_angle > pitch_max_value)
