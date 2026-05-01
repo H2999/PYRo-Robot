@@ -39,7 +39,7 @@ void uav_booster_t::fsm_active_t::shoot_stall_t::enter(uav_booster_t *owner)
     }
     else
     {
-        owner->booster_ctx.data_ctx.target_trigger_rad += PI / 3; // 待调整
+        owner->booster_ctx.data_ctx.target_trigger_rad -= PI / 4; // 待调整
     }
 }
 

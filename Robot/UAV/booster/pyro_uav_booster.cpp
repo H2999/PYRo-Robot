@@ -27,12 +27,12 @@ status_t uav_booster_t::_init()
 
     booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(8.0f, 0.0f, 0.007f,0.0f,
        20, 60, 15, 4);
-    booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(7.6f, 0.0f, 0.007f,0.0f,
+    booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(8.0f, 0.0f, 0.007f,0.0f,
         20, 60, 15, 4);
 
     //拨弹盘pid初始化
     booster_ctx.cfg.pid_cfg.trigger_position_pid =
-        new pid_t(9.8f, 0.0006f, 0.00043f, 1.0f, 20.0f, 60, 30, 4);
+        new pid_t(12.8f, 0.0006f, 0.00043f, 1.0f, 20.0f, 60, 30, 4);
     booster_ctx.cfg.pid_cfg.trigger_speed_pid =
         new pid_t(4.5f, 0.0004f, 0.0003f, 1.0f, 10.0f, 60, 30, 4);
 
@@ -76,8 +76,18 @@ void uav_booster_t::_update_feedback()
 
     //通过裁判系统获取当前弹速
     booster_ctx.referee_ctx.referee_data = booster_ctx.referee_ctx.referee_drv->get_data();
+
     booster_ctx.shoot_data.now_bullet_speed_mps = booster_ctx.referee_ctx.referee_data.shoot.initial_speed;
+
     booster_ctx.shoot_data.robot_id = booster_ctx.referee_ctx.referee_data.robot_status.robot_id;
+    booster_ctx.shoot_data.robot_level = booster_ctx.referee_ctx.referee_data.robot_status.robot_level;
+
+    booster_ctx.shoot_data.Q_max = booster_ctx.referee_ctx.referee_data.robot_status.shooter_barrel_heat_limit;
+    booster_ctx.shoot_data.Q_cd = booster_ctx.referee_ctx.referee_data.robot_status.shooter_barrel_cooling_value;
+    booster_ctx.shoot_data.Q_now = booster_ctx.referee_ctx.referee_data.power_heat.shooter_17mm_barrel_heat;
+    booster_ctx.shoot_data.Q_res = booster_ctx.shoot_data.Q_max - booster_ctx.shoot_data.Q_now;
+
+
 
     //更新反馈
     booster_ctx.cfg.motor_cfg.fric_wheel[0]->update_feedback();
@@ -143,6 +153,8 @@ void uav_booster_t::speed_control()
 {
     if (booster_ctx.shoot_data.last_bullet_speed_mps != booster_ctx.shoot_data.now_bullet_speed_mps)
     {
+        booster_ctx.shoot_data.ball_speed[4] = booster_ctx.shoot_data.ball_speed[3];
+        booster_ctx.shoot_data.ball_speed[3] = booster_ctx.shoot_data.ball_speed[2];
         booster_ctx.shoot_data.ball_speed[2] = booster_ctx.shoot_data.ball_speed[1];
         booster_ctx.shoot_data.ball_speed[1] = booster_ctx.shoot_data.ball_speed[0];
         booster_ctx.shoot_data.ball_speed[0] = booster_ctx.shoot_data.now_bullet_speed_mps;
@@ -155,17 +167,21 @@ void uav_booster_t::speed_control()
             }
         }
 
-        constexpr float w0 = 0.5f;
-        constexpr float w1 = 0.3f;
-        constexpr float w2 = 0.2f;
+        constexpr float w0 = 0.4f;
+        constexpr float w1 = 0.25f;
+        constexpr float w2 = 0.15f;
+        constexpr float w3 = 0.12f;
+        constexpr float w4 = 0.08f;
 
         float e0 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[0];
         float e1 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[1];
         float e2 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[2];
+        float e3 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[3];
+        float e4 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[4];
 
-        float signed_weighted_mse = (w0 * e0 * std::abs(e0)) +
-                                        (w1 * e1 * std::abs(e1)) +
-                                        (w2 * e2 * std::abs(e2));
+        float signed_weighted_mse = (w0 * e0 * std::abs(e0)) + (w1 * e1 * std::abs(e1)) +
+                                (w2 * e2 * std::abs(e2)) + (w3 * e3 * std::abs(e3)) +
+                                            (w4 * e4 * std::abs(e4));
 
         booster_ctx.shoot_data.speed_increment = booster_ctx.cfg.pid_cfg.shoot_closed_pid->calculate(
             signed_weighted_mse, 0);
@@ -241,4 +257,47 @@ uint8_t uav_booster_t::get_robot_id() const
 {
     return booster_ctx.referee_ctx.referee_data.robot_status.robot_id;
 }
+
+float uav_booster_t::heat_control(const int level, const float Q_res)
+{
+    if (level < 1 || level > 10)
+    {
+        return 0.0f;
+    }
+
+    const heat_control_t *p = &booster_ctx.shoot_data.HeatControlParams[level];
+
+    // 阈值按剩余热量百分比设置
+    float Q_warn = p->Q_max * 0.6f;    // 剩余60%热量预警
+    float Q_sat = p->Q_max * 0.3f;     // 剩余30%热量降到平衡
+    float Q_threshold = p->Q_max * 0.2f;   // 剩余20%热量停止
+
+    if (Q_res >= Q_warn)
+    {
+        // 热量充足 满速
+        return p->w_max;
+    }
+    else if (Q_res >= Q_sat)
+    {
+        //防止分母为0
+        float range = Q_warn - Q_sat;
+        if (range <= 0.001f)
+        {
+            return p->w_min;
+        }
+        // 预警区 从 w_min 线性增加到 w_max
+        float t = (Q_res - Q_sat) / (Q_warn - Q_sat);
+        return p->w_min + t * (p->w_max - p->w_min);
+    }
+    else if (Q_res >= Q_threshold)
+    {
+        return p->w_min;
+    }
+    else
+    {
+        // 危险区，停止
+        return 0.0f;
+    }
+}
+
 } // namespace pyro

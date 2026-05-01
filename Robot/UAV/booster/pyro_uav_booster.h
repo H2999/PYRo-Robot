@@ -60,6 +60,7 @@ class uav_booster_t : public module_base_t<uav_booster_t,uav_booster_cmd_t,uav_b
     struct data_ctx_t;
     struct booster_auto_ctx_t;
     struct booster_ctx_t;
+    struct heat_control_t;
     struct shoot_data_t;
     struct referee_ctx_t;
     struct IIR_Filter_ctx_t;
@@ -87,6 +88,7 @@ private:
     void speed_control();
     void speed_filter();
     void send_trigger_command();
+    float heat_control(int level, float Q_res);
 
     static float normalize_angle(float angle);
 
@@ -117,18 +119,76 @@ private:
         float avg_speed;
     };
 
+    // struct heat_control_t
+    // {
+    //     //功率控制相关数据
+    //     float Q_max{};
+    //     float Q_cd{};
+    //     float Q_now{};
+    //     float Q_res{};
+    //
+    //     uint8_t Q_warn{200};
+    //     uint8_t Q_saturation{50};
+    //     uint8_t Q_threshold{20};
+    //
+    //     float speed_max{9.0f};
+    //     float trigger_speed{};
+    // };
+
+    struct heat_control_t{
+        float Q_max;         // 热量上限
+        float cooling_rate; // 冷却速率
+        float w_min;        // 与冷却速率持平的弹速
+        float w_max;        // 最大转速
+    };
+
     struct shoot_data_t
     {
+        //用来刚上电时反转矫正 防止空程和双发
+        bool is_reset_finished{false};
+        //用来给视觉发送enermy_color
         float robot_id{};
+        uint8_t robot_level{};
 
+        heat_control_t HeatControlParams[11]
+        {
+            //测得的是给10rad/s 1s能打16发 这里以等级1为例 Q_max是100 所以最多打10发 所以最大弹速就是 10 * (10 / 16)
+            {0},
+            // 等级1
+            {100, 20, 4.4, 9.5},
+            // 等级2
+            {110, 30, 4.8, 9.8},
+            // 等级3
+            {120, 40, 5.6, 11.2},
+            // 等级4
+            {130, 50, 6.0, 11.6},
+            // 等级5
+            {140, 60, 6.5, 12.3},
+            // 等级6
+            {150, 70, 6.5, 12.3},
+            // 等级7
+            {160, 80, 6.5, 12.3},
+            // 等级8
+            {170, 90, 6.5, 12.3},
+            // 等级9
+            {180, 100, 6.5, 12.3},
+            // 等级10
+            {200, 120, 6.5, 12.3}
+        };
+        //用来弹速闭环
         float last_bullet_speed_mps{0};
         float now_bullet_speed_mps{0};
-        float ball_speed[3]{0.0f};
-
+        float ball_speed[5]{0.0f};
         float speed_increment{0};
-        float target_bullet_speed = 23.5f;
-
+        //目标转速
+        float target_bullet_speed = 22.5f;
+        //施加给摩擦轮的速度
         float fric_mps = 20.7f;
+
+        float Q_max{};
+        float Q_cd{};
+        float Q_now{};
+        float Q_res{};
     };
 
     struct referee_ctx_t
@@ -165,6 +225,15 @@ private:
 
     struct fsm_active_t final : public fsm_t<uav_booster_t>
     {
+        struct reset_state_t final : public state_t<uav_booster_t>
+        {
+            void enter(uav_booster_t *owner) override;
+            void execute(uav_booster_t *owner) override;
+            void exit(uav_booster_t* ctx) override;
+        private:
+            float turnback_start_time{};
+        };
+
         struct state_middle_t final : public state_t<uav_booster_t>
         {
             void enter(uav_booster_t *owner) override;
@@ -205,6 +274,7 @@ private:
         void on_exit(uav_booster_t *owner) override;
 
     private:
+        reset_state_t reset_state;
         state_middle_t middle_state;
         shoot_single_bullet_t single_state;
         shoot_continue_bullet_t continue_state;

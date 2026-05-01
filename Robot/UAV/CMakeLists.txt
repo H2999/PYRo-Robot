@@ -1,5 +1,6 @@
 add_library(UAV OBJECT
-        ui/pyro_ui_app.cpp)
+        ui/pyro_ui_app.cpp
+        booster/fsm/pyro_booster_reset_state.cpp)
 
 target_sources(UAV
         PRIVATE

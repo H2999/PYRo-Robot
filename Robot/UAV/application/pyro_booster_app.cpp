@@ -8,6 +8,7 @@
 #include <pyro_core_config.h>
 
 #include "pyro_autoaim_drv.h"
+#include "pyro_dwt_drv.h"
 #include "pyro_uav_booster.h"
 
 using namespace pyro;
@@ -33,6 +34,8 @@ extern "C"
         read_scope_lock lock(dr16_drv_t::get_lock());
         const auto &vrc = rc_drv_t::read();
 
+        static float last_up_start_tick = 0;
+
         if (sw_pos_t::UP == vrc.switches.right.current_pos)
         {
             uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
@@ -47,28 +50,50 @@ extern "C"
 
         uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
         uav_booster_cmd_ptr->single_mode = false;
+        // uav_booster_cmd_ptr->continue_mode = false;
 
         if (sw_pos_t::MID == vrc.switches.right.current_pos)
         {
             if (notify_val & DR16_FRIC_ENABLE)
             {
                 uav_booster_cmd_ptr->fric_enable = true;
-                // uav_booster_cmd_ptr->single_mode = true;
+                last_up_start_tick = dwt_drv_t::get_timeline_ms();
             }
+
+            // 逻辑：上 -> 中。根据在上档停留的时间决定打一发还是扫射。
             if (notify_val & DR16_TRIG_ENABLE)
             {
+                // 安全检查：只有摩擦轮开了才允许拨弹
+                if (uav_booster_cmd_ptr->fric_enable)
+                {
+                    float stay_time = dwt_drv_t::get_timeline_ms() - last_up_start_tick;
 
-                uav_booster_cmd_ptr->trigger_enable = true;
-                uav_booster_cmd_ptr->continue_mode = true;
-                // uav_booster_cmd_ptr->single_mode = true;
+                    uav_booster_cmd_ptr->trigger_enable = true; // 开启拨弹电机使能
+
+                    if (stay_time < 300)
+                    {
+                        // 短促拨动 (<300ms)：单发一次
+                        uav_booster_cmd_ptr->single_mode = true;
+                        uav_booster_cmd_ptr->continue_mode = false;
+                    }
+                    else
+                    {
+                        // 长时间停留 (>300ms)：进入连发状态
+                        uav_booster_cmd_ptr->continue_mode = true;
+                        uav_booster_cmd_ptr->single_mode = false;
+                    }
+                    last_up_start_tick = 0;
+                }
             }
+
             if (notify_val & DR16_TRIG_AND_FRIC_DISABLE)
             {
-                uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
                 uav_booster_cmd_ptr->fric_enable = false;
                 uav_booster_cmd_ptr->trigger_enable = false;
+                uav_booster_cmd_ptr->single_mode = false;
                 uav_booster_cmd_ptr->continue_mode = false;
-                // uav_booster_cmd_ptr->single_mode = false;
+                uav_booster_cmd_ptr->booster_auto_flag = false;
+                last_up_start_tick = 0;
             }
             // if (notify_val & DR16_TRIG_ENABLE)
             // {

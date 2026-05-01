@@ -8,8 +8,9 @@ void uav_booster_t::fsm_active_t::shoot_single_bullet_t::enter(uav_booster_t *ow
     owner->booster_ctx.cmd->single_mode = false;
 
     // 计算一次目标值: 从当前位置加上单发增量
-    owner->booster_ctx.data_ctx.target_trigger_rad =
-        owner->booster_ctx.data_ctx.current_trigger_rad + 5.0f * PI / 18.0f;
+    owner->booster_ctx.data_ctx.target_trigger_rad +=
+        // owner->booster_ctx.data_ctx.current_trigger_rad +
+        PI / 4.0f;
     float error = owner->booster_ctx.data_ctx.target_trigger_rad - owner->booster_ctx.data_ctx.current_trigger_rad;
     if (error > PI)
     {
