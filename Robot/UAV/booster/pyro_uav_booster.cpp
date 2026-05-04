@@ -1,5 +1,6 @@
 #include "pyro_uav_booster.h"
 #include "pyro_dji_motor_drv.h"
+#include "pyro_dwt_drv.h"
 #include "pyro_referee.h"
 
 namespace pyro
@@ -25,10 +26,13 @@ status_t uav_booster_t::_init()
     //摩擦轮pid初始化
 
 
-    booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(8.0f, 0.0f, 0.007f,0.0f,
-       20, 60, 15, 4);
-    booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(8.0f, 0.0f, 0.007f,0.0f,
-        20, 60, 15, 4);
+    // booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(18.0f, 0.0f, 0.2f,0.0f,
+    //     20);
+    // booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(14.0f, 0.0f, 0.07f,0.0f,
+    //     20);
+
+    booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(25.0f, 0.0f, 0.15f, 0.0f, 20);
+    booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(24.0f, 0.0f, 0.08f, 0.0f, 20);
 
     //拨弹盘pid初始化
     booster_ctx.cfg.pid_cfg.trigger_position_pid =
@@ -84,10 +88,8 @@ void uav_booster_t::_update_feedback()
 
     booster_ctx.shoot_data.Q_max = booster_ctx.referee_ctx.referee_data.robot_status.shooter_barrel_heat_limit;
     booster_ctx.shoot_data.Q_cd = booster_ctx.referee_ctx.referee_data.robot_status.shooter_barrel_cooling_value;
-    booster_ctx.shoot_data.Q_now = booster_ctx.referee_ctx.referee_data.power_heat.shooter_17mm_barrel_heat;
-    booster_ctx.shoot_data.Q_res = booster_ctx.shoot_data.Q_max - booster_ctx.shoot_data.Q_now;
-
-
+    booster_ctx.shoot_data.Q_now_referee = booster_ctx.referee_ctx.referee_data.power_heat.shooter_17mm_barrel_heat;
+    booster_ctx.shoot_data.Q_res = booster_ctx.shoot_data.Q_max - booster_ctx.shoot_data.Q_now_referee;
 
     //更新反馈
     booster_ctx.cfg.motor_cfg.fric_wheel[0]->update_feedback();
@@ -97,6 +99,8 @@ void uav_booster_t::_update_feedback()
     //获取摩擦轮转速
     booster_ctx.data_ctx.current_fric_mps[0] = booster_ctx.cfg.motor_cfg.fric_wheel[0]->get_current_rotate() * FRIC1_RADIUS;
     booster_ctx.data_ctx.current_fric_mps[1] = booster_ctx.cfg.motor_cfg.fric_wheel[1]->get_current_rotate() * FRIC1_RADIUS;
+
+    booster_ctx.data_ctx.current_fric_torque = booster_ctx.cfg.motor_cfg.fric_wheel[0]->get_current_torque();
 
     //获取拨弹盘转速 位置和扭矩
     booster_ctx.data_ctx.current_trigger_radps =
@@ -121,77 +125,48 @@ void uav_booster_t::_update_feedback()
     booster_ctx.data_ctx.last_motor_rad  = now_motor_rad;
 
     booster_ctx.data_ctx.current_trigger_rad = normalize_angle(booster_ctx.data_ctx.total_trigger_rad);
-
-    /*
-    const float now_rotor_rad = booster_ctx.cfg.motor_cfg.trigger_wheel->get_current_position();
-    const float now_rotor_torque = booster_ctx.cfg.motor_cfg.trigger_wheel->get_current_torque();
-
-    float delta_rotor = now_rotor_rad - booster_ctx.data_ctx.last_rotor_rad;
-    if (delta_rotor > PI)
-    {
-        delta_rotor -= 2.0f * PI;
-    }
-    else if (delta_rotor < -PI)
-    {
-        delta_rotor += 2.0f * PI;
-    }
-
-    booster_ctx.data_ctx.total_trigger_rad += delta_rotor * reciprocal_ratio;
-
-    if (fabsf(booster_ctx.data_ctx.total_trigger_rad) > 2.0f * PI) {
-        booster_ctx.data_ctx.total_trigger_rad = fmodf(booster_ctx.data_ctx.total_trigger_rad, 2.0f * PI);
-    }
-
-    booster_ctx.data_ctx.current_trigger_radps = now_rotor_rad * reciprocal_ratio;
-    booster_ctx.data_ctx.current_trigger_rad = normalize_angle(booster_ctx.data_ctx.total_trigger_rad);
-    booster_ctx.data_ctx.current_trigger_torque = now_rotor_torque;
-    booster_ctx.data_ctx.last_rotor_rad = now_rotor_rad;
-    */
 }
 
 void uav_booster_t::speed_control()
 {
     if (booster_ctx.shoot_data.last_bullet_speed_mps != booster_ctx.shoot_data.now_bullet_speed_mps)
     {
-        booster_ctx.shoot_data.ball_speed[4] = booster_ctx.shoot_data.ball_speed[3];
-        booster_ctx.shoot_data.ball_speed[3] = booster_ctx.shoot_data.ball_speed[2];
-        booster_ctx.shoot_data.ball_speed[2] = booster_ctx.shoot_data.ball_speed[1];
-        booster_ctx.shoot_data.ball_speed[1] = booster_ctx.shoot_data.ball_speed[0];
-        booster_ctx.shoot_data.ball_speed[0] = booster_ctx.shoot_data.now_bullet_speed_mps;
-
-        for (float & i : booster_ctx.shoot_data.ball_speed)
+        if (booster_ctx.shoot_data.now_bullet_speed_mps > 20.0f && booster_ctx.shoot_data.now_bullet_speed_mps < 25.0f)
         {
-            if (std::abs(i) < 1e-6f)
+            booster_ctx.shoot_data.ball_speed[2] = booster_ctx.shoot_data.ball_speed[1];
+            booster_ctx.shoot_data.ball_speed[1] = booster_ctx.shoot_data.ball_speed[0];
+            booster_ctx.shoot_data.ball_speed[0] = booster_ctx.shoot_data.now_bullet_speed_mps;
+
+            for (float & i : booster_ctx.shoot_data.ball_speed)
             {
-                i = booster_ctx.shoot_data.target_bullet_speed;
+                if (std::abs(i) < 1e-6f)
+                {
+                    i = booster_ctx.shoot_data.target_bullet_speed;
+                }
             }
+
+            constexpr float w0 = 0.6f;
+            constexpr float w1 = 0.25f;
+            constexpr float w2 = 0.15f;
+
+
+            float e0 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[0];
+            float e1 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[1];
+            float e2 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[2];
+
+            float signed_weighted_mse = (w0 * e0 * std::abs(e0)) + (w1 * e1 * std::abs(e1)) +
+                                    (w2 * e2 * std::abs(e2));
+
+            booster_ctx.shoot_data.speed_increment = booster_ctx.cfg.pid_cfg.shoot_closed_pid->calculate(
+                signed_weighted_mse, 0);
+
+            booster_ctx.shoot_data.fric_mps += booster_ctx.shoot_data.speed_increment;
+
+            constexpr float MAX_SPEED = 23.5f;
+            constexpr float MIN_SPEED = 17.5f;
+            if (booster_ctx.shoot_data.fric_mps > MAX_SPEED){booster_ctx.shoot_data.fric_mps = MAX_SPEED;}
+            if (booster_ctx.shoot_data.fric_mps < MIN_SPEED){booster_ctx.shoot_data.fric_mps = MIN_SPEED;}
         }
-
-        constexpr float w0 = 0.4f;
-        constexpr float w1 = 0.25f;
-        constexpr float w2 = 0.15f;
-        constexpr float w3 = 0.12f;
-        constexpr float w4 = 0.08f;
-
-        float e0 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[0];
-        float e1 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[1];
-        float e2 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[2];
-        float e3 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[3];
-        float e4 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[4];
-
-        float signed_weighted_mse = (w0 * e0 * std::abs(e0)) + (w1 * e1 * std::abs(e1)) +
-                                (w2 * e2 * std::abs(e2)) + (w3 * e3 * std::abs(e3)) +
-                                            (w4 * e4 * std::abs(e4));
-
-        booster_ctx.shoot_data.speed_increment = booster_ctx.cfg.pid_cfg.shoot_closed_pid->calculate(
-            signed_weighted_mse, 0);
-
-        booster_ctx.shoot_data.fric_mps += booster_ctx.shoot_data.speed_increment;
-
-        constexpr float MAX_SPEED = 23.5f;
-        constexpr float MIN_SPEED = 17.5f;
-        if (booster_ctx.shoot_data.fric_mps > MAX_SPEED){booster_ctx.shoot_data.fric_mps = MAX_SPEED;}
-        if (booster_ctx.shoot_data.fric_mps < MIN_SPEED){booster_ctx.shoot_data.fric_mps = MIN_SPEED;}
         booster_ctx.shoot_data.last_bullet_speed_mps = booster_ctx.shoot_data.now_bullet_speed_mps;
     }
 }
@@ -267,25 +242,22 @@ float uav_booster_t::heat_control(const int level, const float Q_res)
 
     const heat_control_t *p = &booster_ctx.shoot_data.HeatControlParams[level];
 
-    // 阈值按剩余热量百分比设置
-    float Q_warn = p->Q_max * 0.6f;    // 剩余60%热量预警
-    float Q_sat = p->Q_max * 0.3f;     // 剩余30%热量降到平衡
-    float Q_threshold = p->Q_max * 0.2f;   // 剩余20%热量停止
+    float Q_warn = p->Q_max * 0.8f;         // 剩余60%热量预警
+    float Q_sat = p->Q_max * 0.35f;          // 剩余30%热量降到平衡
+    float Q_threshold = p->Q_max * 0.1f;    // 剩余15%热量停止
 
     if (Q_res >= Q_warn)
     {
-        // 热量充足 满速
         return p->w_max;
     }
     else if (Q_res >= Q_sat)
     {
-        //防止分母为0
         float range = Q_warn - Q_sat;
         if (range <= 0.001f)
         {
             return p->w_min;
         }
-        // 预警区 从 w_min 线性增加到 w_max
+
         float t = (Q_res - Q_sat) / (Q_warn - Q_sat);
         return p->w_min + t * (p->w_max - p->w_min);
     }
@@ -295,9 +267,59 @@ float uav_booster_t::heat_control(const int level, const float Q_res)
     }
     else
     {
-        // 危险区，停止
         return 0.0f;
     }
+}
+
+float uav_booster_t::heat_calculate()
+{
+    //不以固定的1ms来计算 实时计算dt
+    static float last_time_ms = 0.0f;
+    const float now_ms = dwt_drv_t::get_timeline_ms();
+    //对齐时间基准
+    if (last_time_ms == 0.0f)
+    {
+        last_time_ms = now_ms;
+        return booster_ctx.shoot_data.Q_now_no_referee;
+    }
+    float real_dt = (now_ms - last_time_ms) / 1000.0f;
+    last_time_ms = now_ms;
+
+    //计算热量
+    float trigger_rad_now = booster_ctx.data_ctx.total_trigger_rad;
+    static float last_counted_rad = -1.0f;
+    if (last_counted_rad < 0.0f)
+    {
+        last_counted_rad = trigger_rad_now;
+    }
+    // 只要拨弹盘往前转够一发的位置，就加热量
+    if (trigger_rad_now - last_counted_rad == PI / 4.0f)
+    {
+        booster_ctx.shoot_data.Q_now_no_referee += 10.0f;
+        last_counted_rad += PI / 4.0f;
+    }
+    // 解决回退问题 如果电机位置比上次计数点还往后，强制对齐
+    if (trigger_rad_now < last_counted_rad)
+    {
+        last_counted_rad = trigger_rad_now;
+    }
+    //减去冷却 因为冷却速度是每秒冷却的热量 所以要乘个dt
+    if (booster_ctx.shoot_data.Q_now_no_referee > 0.0f)
+    {
+        booster_ctx.shoot_data.Q_now_no_referee -= booster_ctx.shoot_data.Q_cd * real_dt;
+    }
+    // 限幅防负数
+    if (booster_ctx.shoot_data.Q_now_no_referee < 0.0f)
+    {
+        booster_ctx.shoot_data.Q_now_no_referee = 0.0f;
+    }
+
+    return booster_ctx.shoot_data.Q_now_no_referee;
+}
+
+uav_booster_t::booster_ctx_t* uav_booster_t::get_data()
+{
+    return &booster_ctx;
 }
 
 } // namespace pyro

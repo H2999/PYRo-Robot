@@ -6,6 +6,7 @@
 #include "pyro_module_base.h"
 #include "pyro_motor_base.h"
 #include "pyro_referee.h"
+#include "booster_config.h"
 
 namespace pyro
 {
@@ -70,6 +71,8 @@ public:
     uav_booster_t & operator = (const uav_booster_t &) = delete;
 
     [[nodiscard]] uint8_t get_robot_id() const;
+    booster_ctx_t* get_data();
+    float heat_calculate();
 
 private:
     uav_booster_t();
@@ -88,12 +91,17 @@ private:
     void speed_control();
     void speed_filter();
     void send_trigger_command();
+    //基于裁判系统的热量控制
     float heat_control(int level, float Q_res);
+    //无裁判系统的热量控
 
     static float normalize_angle(float angle);
 
     struct data_ctx_t
     {
+        float last_torque{};
+        float now_torque{};
+
         float last_motor_rad{0};
         float total_trigger_rad{0};
 
@@ -102,6 +110,7 @@ private:
         float current_trigger_rad{0};
         float current_trigger_radps{};
         float current_trigger_torque{0};
+        float current_fric_torque{};
 
         //目标
         float target_fric_mps[2]{};
@@ -152,7 +161,6 @@ private:
 
         heat_control_t HeatControlParams[11]
         {
-            //测得的是给10rad/s 1s能打16发 这里以等级1为例 Q_max是100 所以最多打10发 所以最大弹速就是 10 * (10 / 16)
             {0},
             // 等级1
             {100, 20, 4.4, 9.5},
@@ -163,17 +171,17 @@ private:
             // 等级4
             {130, 50, 6.0, 11.6},
             // 等级5
-            {140, 60, 6.5, 12.3},
+            {140, 60, 6.5, 12.8},
             // 等级6
-            {150, 70, 6.5, 12.3},
+            {150, 70, 7.0, 13.6},
             // 等级7
-            {160, 80, 6.5, 12.3},
+            {160, 80, 7.5, 13.6},
             // 等级8
-            {170, 90, 6.5, 12.3},
+            {170, 90, 8.5, 14.8},
             // 等级9
-            {180, 100, 6.5, 12.3},
+            {180, 100, 8.5, 14.8},
             // 等级10
-            {200, 120, 6.5, 12.3}
+            {200, 120, 9.5, 15.8}
         };
         //用来弹速闭环
         float last_bullet_speed_mps{0};
@@ -181,13 +189,14 @@ private:
         float ball_speed[5]{0.0f};
         float speed_increment{0};
         //目标转速
-        float target_bullet_speed = 22.5f;
+        float target_bullet_speed = 23.5f;
         //施加给摩擦轮的速度
-        float fric_mps = 20.7f;
+        float fric_mps = 21.3f;
 
         float Q_max{};
         float Q_cd{};
-        float Q_now{};
+        float Q_now_referee{};
+        float Q_now_no_referee{};
         float Q_res{};
     };
 
@@ -285,14 +294,6 @@ private:
     passive_state_t passive_state;
     fsm_active_t active_state;
     fsm_t<uav_booster_t> main_fsm;
-
-    static constexpr float FRIC1_RADIUS = 0.03f;
-    static constexpr float FRIC2_RADIUS = 0.03f;
-
-    static constexpr float reduction_ratio = 36.0f;
-    static constexpr float reciprocal_reduction_ratio =  0.0277777777777777f;
-
-    static constexpr float filter_num[3] = {1.562916920892f, -0.6413063774028f, 0.07838945651057f};
 };
 
 };

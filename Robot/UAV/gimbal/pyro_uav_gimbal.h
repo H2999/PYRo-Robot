@@ -6,6 +6,7 @@
 #include "pyro_ins.h"
 #include "pyro_module_base.h"
 #include "pyro_motor_base.h"
+#include "gimbal_config.h"
 
 namespace pyro
 {
@@ -211,14 +212,6 @@ private:
     state_passive_t state_passive;
     fsm_active_t state_active;
     fsm_t<uav_gimbal_t> main_fsm;
-
-    static constexpr float yaw_motor_max_value = 1.5f;
-    static constexpr float yaw_motor_min_value = -1.1f;
-
-    static constexpr float pitch_max_value = 0.6f;
-    static constexpr float pitch_min_value = -0.26f;
-
-    static constexpr float YAW_OFFSET_RAD = 2.60700035f;
 };
 
 }

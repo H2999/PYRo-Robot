@@ -11,10 +11,12 @@ void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::execute(uav_booster_t
     if (owner->booster_ctx.cmd->continue_mode)
     {
         // 直接调用，无需switch
-        const int level = owner->booster_ctx.shoot_data.robot_level;
-        const float Q_res = owner->booster_ctx.shoot_data.Q_res;
+        // const uint8_t level = owner->booster_ctx.shoot_data.robot_level;
+        // const float Q_res = owner->booster_ctx.shoot_data.Q_res;
+        const float Q_now = owner->booster_ctx.shoot_data.Q_now_no_referee;
+        const float Q_res = owner->booster_ctx.shoot_data.Q_max - Q_now;
 
-        owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control(5, Q_res);
+        owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control(1, Q_res);
     }
     else
     {

@@ -27,17 +27,18 @@ status_t uav_gimbal_t::_init()
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_rotate_range(-30, 30);
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_torque_range(-7, 7);
 
-    gimbal_ctx.yaw_td.r = 400.0f;  // 根据响应速度调整 响应慢的话调大到 600-800
+    gimbal_ctx.yaw_td.r = 350.0f;   // 根据响应速度调整 响应慢的话调大到 600-800 计算公式 比如目标角度变了0.1° 我想让云台在50ms内跟上这个变化
+                                    // 0.1 = 1/2 * r * （0.05）² 但要克服阻力 惯性等因素 所以要给大一点
     gimbal_ctx.yaw_td.h = 0.01f;   // 滤波因子，一般设为 5~10 倍 dt 响应慢的话可以适当调小
-    gimbal_ctx.yaw_td.dt = 0.001f;
+    gimbal_ctx.yaw_td.dt = 0.001f;  //控制周期
 
-    gimbal_ctx.pitch_td.r = 350.0f;
-    gimbal_ctx.pitch_td.h = 0.01f;
+    gimbal_ctx.pitch_td.r = 400.0f;
+    gimbal_ctx.pitch_td.h = 0.004f;
     gimbal_ctx.pitch_td.dt = 0.001f;
 
     gimbal_ctx.cfg.pid_ctx.yaw_position_pid = new pid_t(22.5f,0.0f,0.0f,0.0f,
                10.0f,50,20,4);
-    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(3.7f,0.08f,0.0004f,1.5f,
+    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(3.25f,0.08f,0.0003f,1.5f,
                 3.0f,50,20,4);
 
     gimbal_ctx.cfg.pid_ctx.pitch_position_pid = new pid_t(18.2f,0.01f,0.0005f,0.4f,
@@ -46,14 +47,16 @@ status_t uav_gimbal_t::_init()
                 7.0f,30,15,4);
 
     //自瞄pid 4/23版
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(15.0f,0.01f,0.000f,1.0f,
-                15.0f,60,30,4);
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(2.05f,0.001f,0.0002f,0.5f,
-                1.0f,30,20,4);
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(19.5f,0.009f,0.025f,0.5f,
-                10.0f,40,20,4);
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(1.156f,0.000838f,0.0004f,0.5f,
-                7.0f,40,20,4);
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.5f,0.0f,0.0f,0.0f,
+               10.0f,50,20,4);
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(3.2f,0.08f,0.0003f,1.5f,
+                3.0f,50,20,4);
+
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(18.0f,0.01f,0.0005f,0.4f,
+                7.0f,50,30,4);
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(1.05f,0.065f,0.0007f,1.5f,
+                7.0f,30,15,4);
+
     return PYRO_OK;
 }
 
@@ -105,7 +108,7 @@ void uav_gimbal_t::_fsm_execute()
 
 void uav_gimbal_t::rc_gimbal_control(gimbal_ctx_t *ctx)
 {
-    float yaw_speed_ff = ctx->cmd->yaw_delta_angle * 500.0f;
+    float yaw_speed_ff = ctx->cmd->yaw_delta_angle / control_dt * yaw_k_ff;
 
     ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.yaw_position_pid->calculate(
             ctx->data._target_yaw_angle,  ctx->data._current_imu_yaw_angle) + yaw_speed_ff;
@@ -127,7 +130,7 @@ void uav_gimbal_t::rc_gimbal_control(gimbal_ctx_t *ctx)
     //
     // ctx->data._output_yaw_torque = std::clamp(ctx->data._output_yaw_torque, -3.0f, 3.0f);
 
-    float pitch_speed_ff = ctx->cmd->pitch_delta_angle * 700.0f;
+    float pitch_speed_ff = ctx->cmd->pitch_delta_angle / control_dt * pitch_k_ff;
 
     ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.pitch_position_pid->calculate(
          ctx->data._target_pitch_angle, ctx->data._current_imu_pitch_angle) + pitch_speed_ff;
@@ -174,7 +177,7 @@ void uav_gimbal_t::rc_gimbal_control(gimbal_ctx_t *ctx)
 
 void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
 {
-    // 【关键】防止切入瞬间抖动：如果刚开启自瞄，强制 TD 位置等于当前 IMU 位置
+    // 防止切入瞬间抖动 如果刚开启自瞄 强制 TD 位置等于当前 IMU 位置
     static bool last_auto_flag = false;
     if (ctx->auto_ctx.auto_enable && !last_auto_flag) {
         ctx->yaw_td.x1 = ctx->data._current_imu_yaw_angle;
@@ -184,16 +187,19 @@ void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
     }
     last_auto_flag = ctx->auto_ctx.auto_enable;
 
-    // 1. 使用 TD 计算平滑目标 (替代直接传入 ctx->data._target_yaw_angle)
+    //  TD 计算平滑目标
     td_calculate(&ctx->yaw_td, ctx->data._target_yaw_angle);
     td_calculate(&ctx->pitch_td, ctx->data._target_pitch_angle);
 
     // 2. Yaw 轴计算
-    // 注意：这里计算 PID 时使用的是 TD 输出的平滑位置 x1
-    float yaw_speed_ff = ctx->yaw_td.x2 * 0.8f;
+    // PID 时使用的是 TD 输出的平滑位置 x1
+    float yaw_speed_ff = ctx->yaw_td.x2 * 0.7f;
 
     ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.auto_yaw_position_pid->calculate(
             ctx->yaw_td.x1,  ctx->data._current_imu_yaw_angle) + yaw_speed_ff;
+
+    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.auto_yaw_speed_pid->calculate(
+            ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
 
     constexpr float YAW_DEADBAND_RADPS = 0.04f;
 
@@ -206,16 +212,13 @@ void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
         ctx->data._output_yaw_torque += 0.1f;
     }
 
-    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.auto_yaw_speed_pid->calculate(
-            ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
-
     // 3. Pitch 轴计算
-    float pitch_speed_ff = ctx->pitch_td.x2 * 0.8f; // 尝试使用 TD 内部计算的速度
+    float pitch_speed_ff = ctx->pitch_td.x2;
 
     ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.auto_pitch_position_pid->calculate(
              ctx->pitch_td.x1, ctx->data._current_imu_pitch_angle) + pitch_speed_ff;
 
-    // 重力补偿 (这里你可以换成之前拟合好的轻量化曲线)
+    // 重力补偿
     ctx->data.gravity_compensate = (1.7671f * ctx->data.pitch_motor_angle - 0.9575f) * ctx->data.pitch_motor_angle - 1.1147f;
     if (abs(ctx->data.gravity_compensate) > 1.35f) ctx->data.gravity_compensate = 1.35f;
 
@@ -247,10 +250,10 @@ void uav_gimbal_t::normalize_angle(float& angle)
 
 void uav_gimbal_t::td_calculate(TD_t *td, float target)
 {
-    float x1_err = td->x1 - target;
+    const float x1_err = td->x1 - target;
     float d = td->r * td->h * td->h;
-    float a0 = td->h * td->x2;
-    float y = x1_err + a0;
+    const float a0 = td->h * td->x2;
+    const float y = x1_err + a0;
 
     auto sgn = [](float x) { return (x > 0.0f) ? 1.0f : ((x < 0.0f) ? -1.0f : 0.0f); };
 

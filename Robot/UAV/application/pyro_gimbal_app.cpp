@@ -72,43 +72,46 @@ void gimbalvt03cmd(uint32_t notify_val)
 
     gimbal_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
 
-    if (sw_pos_t::DOWN == vrc.switches.right.current_pos)
+    if (sw_pos_t::DOWN == vrc.switches.gear.current_pos)
     {
         gimbal_cmd_ptr->auto_flag = true;
 
         gimbal_cmd_ptr->yaw_target_angle = rx_data.shoot_yaw;
         gimbal_cmd_ptr->pitch_target_angle = rx_data.shoot_pitch;
-        gimbal_cmd_ptr->yaw_delta_angle   = - vrc.axes.rx * rc_sensitivity;
-        gimbal_cmd_ptr->pitch_delta_angle = - vrc.axes.ry * rc_sensitivity;
+
+        gimbal_cmd_ptr->pitch_delta_angle =
+            -vrc.axes.ry * 0.0025f - vrc.mouse_axes.y * 0.1f;
+        gimbal_cmd_ptr->yaw_delta_angle =
+            -vrc.axes.rx * 0.0025f - vrc.mouse_axes.x * 0.5f;
     }
-    if (sw_pos_t::MID == vrc.switches.right.current_pos)
+
+    if (sw_pos_t::MID == vrc.switches.gear.current_pos)
     {
         gimbal_cmd_ptr->auto_flag = false;
 
-        gimbal_cmd_ptr->yaw_delta_angle   = - vrc.axes.rx * rc_sensitivity;
-        gimbal_cmd_ptr->pitch_delta_angle = - vrc.axes.ry * rc_sensitivity;
+        gimbal_cmd_ptr->pitch_delta_angle =
+            -vrc.axes.ry * 0.0025f - vrc.mouse_axes.y * 0.1f;
+        gimbal_cmd_ptr->yaw_delta_angle =
+            -vrc.axes.rx * 0.0025f - vrc.mouse_axes.x * 0.5f;
     }
-    // gimbal_cmd_ptr->pitch_delta_angle =
-    //     -vrc.axes.ry * 0.0025f - vrc.mouse_axes.y * 0.25f;
-    // gimbal_cmd_ptr->yaw_delta_angle =
-    //     -vrc.axes.rx * 0.0025f - vrc.mouse_axes.x * 0.6f;
-}
+    }
+
 
 void uav_gimbal_main_thread(void *argument)
 {
     while (true)
     {
         uint32_t notify_val = 0;
-        xTaskNotifyWait(0x00, UINT32_MAX, &notify_val, 0);
+        xTaskNotifyWait(0x00, 0xFFFFFFFF, &notify_val, 0);
 
         if (dr16_drv_t::instance().check_online())
         {
             gimbal_dr16cmd(notify_val);
         }
-        // else if (vt03_drv_t::instance().check_online())
-        // {
-        //     gimbalvt03cmd(notify_val);
-        // }
+        else if (vt03_drv_t::instance().check_online())
+        {
+            gimbalvt03cmd(notify_val);
+        }
 
         gimbal_ptr->set_command(*gimbal_cmd_ptr);
         vTaskDelay(1);

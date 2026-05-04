@@ -1,6 +1,8 @@
 add_library(UAV OBJECT
         ui/pyro_ui_app.cpp
-        booster/fsm/pyro_booster_reset_state.cpp)
+        booster/fsm/pyro_booster_reset_state.cpp
+        booster/booster_config.h
+        gimbal/gimbal_config.h)
 
 target_sources(UAV
         PRIVATE
@@ -48,8 +50,8 @@ target_link_libraries(UAV PUBLIC
 
 target_compile_definitions(PYRo PUBLIC
         DR16_UART=PYRO_UART5
-#        VT03_UART=PYRO_UART10
         REFEREE_UART=PYRO_UART1
         AUTOAIM_UART=PYRO_UART7
+        VT03_UART=PYRO_UART7
         JCOM_DEBUG_PORT=PYRO_UART10
 )

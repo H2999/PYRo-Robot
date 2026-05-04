@@ -43,6 +43,7 @@ namespace pyro
 #endif
 
 #ifdef VT03_UART
+            rc_drv_t::init_virtual_rc();
             vt03_drv_t::instance().start();
             vt03_drv_t::instance().enable();
             VT03_UART.reset(921600, UART_WORDLENGTH_8B, UART_STOPBITS_1,

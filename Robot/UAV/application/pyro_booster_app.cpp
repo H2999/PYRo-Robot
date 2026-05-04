@@ -13,14 +13,21 @@
 
 using namespace pyro;
 
-constexpr uint32_t DR16_FRIC_ENABLE                    = (1 << 0);
-constexpr uint32_t DR16_TRIG_ENABLE                    = (1 << 1);
-constexpr uint32_t DR16_TRIG_AND_FRIC_DISABLE          = (1 << 2);
-constexpr uint32_t AUTO_MODE_TRIG_AND_FRIC_DISABLE     = (1 << 3);
+constexpr uint32_t DR16_FRIC_ENABLE                    = (1 << 4);
+constexpr uint32_t DR16_TRIG_ENABLE                    = (1 << 5);
+constexpr uint32_t DR16_TRIG_AND_FRIC_DISABLE          = (1 << 6);
 
-constexpr uint32_t VT03_FRIC_TOGGLE                    = (1 << 4);
-constexpr uint32_t VT03_TRIGGER_TOGGLE                 = (1 << 5);
-constexpr uint32_t VT03_TRIGGER_AND_FRIC_DISABLE       = (1 << 6);
+constexpr uint32_t VT03_FRIC_TOGGLE                    = (1 << 0);
+constexpr uint32_t VT03_TRIGGER_SINGLE                 = (1 << 1);
+constexpr uint32_t VT03_TRIGGER_CONTINUE               = (1 << 2);
+constexpr uint32_t VT03_TRIGGER_DISABLE                = (1 << 3);
+
+constexpr uint32_t MOUSE_SINGLE                        = (1 << 7);
+constexpr uint32_t MOUSE_CONTINUE                      = (1 << 8);
+constexpr uint32_t MOUSE_DISABLE                       = (1 << 9);
+constexpr uint32_t MOUSE_ENTER_AUTO                    = (1 << 10);
+constexpr uint32_t KEY_FRIC_TOGGLE                     = (1 << 11);
+
 
 static TaskHandle_t booster_task_handle       = nullptr;
 uav_booster_t *uav_booster_ptr                = nullptr;
@@ -50,7 +57,6 @@ extern "C"
 
         uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
         uav_booster_cmd_ptr->single_mode = false;
-        // uav_booster_cmd_ptr->continue_mode = false;
 
         if (sw_pos_t::MID == vrc.switches.right.current_pos)
         {
@@ -60,7 +66,7 @@ extern "C"
                 last_up_start_tick = dwt_drv_t::get_timeline_ms();
             }
 
-            // 逻辑：上 -> 中。根据在上档停留的时间决定打一发还是扫射。
+            // 根据在上档停留的时间决定打一发还是扫射。
             if (notify_val & DR16_TRIG_ENABLE)
             {
                 // 安全检查：只有摩擦轮开了才允许拨弹
@@ -70,15 +76,15 @@ extern "C"
 
                     uav_booster_cmd_ptr->trigger_enable = true; // 开启拨弹电机使能
 
-                    if (stay_time < 300)
+                    if (stay_time < 1500)
                     {
-                        // 短促拨动 (<300ms)：单发一次
+                        // 短促拨动 (<800ms)：单发一次
                         uav_booster_cmd_ptr->single_mode = true;
                         uav_booster_cmd_ptr->continue_mode = false;
                     }
                     else
                     {
-                        // 长时间停留 (>300ms)：进入连发状态
+                        // 长时间停留 (>800ms)：进入连发状态
                         uav_booster_cmd_ptr->continue_mode = true;
                         uav_booster_cmd_ptr->single_mode = false;
                     }
@@ -95,30 +101,10 @@ extern "C"
                 uav_booster_cmd_ptr->booster_auto_flag = false;
                 last_up_start_tick = 0;
             }
-            // if (notify_val & DR16_TRIG_ENABLE)
-            // {
-            //
-            //     uav_booster_cmd_ptr->trigger_enable = true;
-            //     // uav_booster_cmd_ptr->continue_mode = true;
-            //     uav_booster_cmd_ptr->single_mode = true;
-            // }
-            // if (notify_val & DR16_TRIG_AND_FRIC_DISABLE)
-            // {
-            //     // uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
-            //     // uav_booster_cmd_ptr->fric_enable = false;
-            //     uav_booster_cmd_ptr->trigger_enable = false;
-            //     // uav_booster_cmd_ptr->continue_mode = false;
-            //     uav_booster_cmd_ptr->single_mode = false;
-            // }
         }
 
         if (sw_pos_t::DOWN == vrc.switches.right.current_pos)
         {
-            // if (notify_val & DR16_FRIC_ENABLE)
-            // {
-            //     uav_booster_cmd_ptr->fric_enable = true;
-            //     // uav_booster_cmd_ptr->single_mode = true;
-            // }
             // if (rx_data.fire)
             // {
             //     uav_booster_cmd_ptr->booster_auto_flag = true;
@@ -134,55 +120,49 @@ extern "C"
             if (notify_val & DR16_FRIC_ENABLE)
             {
                 uav_booster_cmd_ptr->fric_enable = true;
-                // uav_booster_cmd_ptr->single_mode = true;
+                last_up_start_tick = dwt_drv_t::get_timeline_ms();
             }
             if (notify_val & DR16_TRIG_ENABLE)
             {
+                if (uav_booster_cmd_ptr->fric_enable)
+                {
+                    float stay_time = dwt_drv_t::get_timeline_ms() - last_up_start_tick;
 
-                uav_booster_cmd_ptr->trigger_enable = true;
-                uav_booster_cmd_ptr->continue_mode = true;
-                // uav_booster_cmd_ptr->single_mode = true;
+                    uav_booster_cmd_ptr->trigger_enable = true; // 开启拨弹电机使能
+
+                    if (stay_time < 1500)
+                    {
+                        // 短促拨动 (<800ms)：单发一次
+                        uav_booster_cmd_ptr->single_mode = true;
+                        uav_booster_cmd_ptr->continue_mode = false;
+                    }
+                    else
+                    {
+                        // 长时间停留 (>800ms)：进入连发状态
+                        uav_booster_cmd_ptr->continue_mode = true;
+                        uav_booster_cmd_ptr->single_mode = false;
+                    }
+                    last_up_start_tick = 0;
+                }
             }
             if (notify_val & DR16_TRIG_AND_FRIC_DISABLE)
             {
-                uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
                 uav_booster_cmd_ptr->fric_enable = false;
                 uav_booster_cmd_ptr->trigger_enable = false;
+                uav_booster_cmd_ptr->single_mode = false;
                 uav_booster_cmd_ptr->continue_mode = false;
-                // uav_booster_cmd_ptr->single_mode = false;
+                uav_booster_cmd_ptr->booster_auto_flag = false;
+                last_up_start_tick = 0;
             }
         }
     }
 
 void booster_vt03rcmd(uint32_t notify_val)
 {
-    read_scope_lock lock(dr16_drv_t::get_lock());
+    read_scope_lock lock(vt03_drv_t::get_lock());
     const auto &vrc = rc_drv_t::read();
 
-    // if (sw_pos_t::DOWN != vrc.switches.gear.current_pos)
-    // {
-    //     uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
-    //     uav_booster_cmd_ptr->fric_enable = false;
-    //     uav_booster_cmd_ptr->trigger_enable = false;
-    //     uav_booster_cmd_ptr->single_mode = false;
-    //     uav_booster_cmd_ptr->continue_mode = false;
-    //     return;
-    // }
-    //
-    // uav_booster_cmd_ptr->mode         = cmd_base_t::mode_t::ACTIVE;
-    //
-    // if (notify_val & VT03_FRIC_TOGGLE)
-    // {
-    //     uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
-    // }
-    //
-    // if (notify_val & VT03_TRIGGER_TOGGLE)
-    // {
-    //     uav_booster_cmd_ptr->trigger_enable = !uav_booster_cmd_ptr->trigger_enable;
-    //     uav_booster_cmd_ptr->continue_mode = !uav_booster_cmd_ptr->continue_mode;
-    // }
-
-    if (sw_pos_t::UP == vrc.switches.right.current_pos)
+    if (sw_pos_t::UP == vrc.switches.gear.current_pos)
     {
         uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
 
@@ -197,42 +177,66 @@ void booster_vt03rcmd(uint32_t notify_val)
     uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
     uav_booster_cmd_ptr->single_mode = false;
 
-    if (sw_pos_t::MID == vrc.switches.right.current_pos)
+    if (sw_pos_t::MID == vrc.switches.gear.current_pos)
     {
-        if (notify_val & VT03_FRIC_TOGGLE)
+        if (notify_val & VT03_FRIC_TOGGLE || notify_val & KEY_FRIC_TOGGLE)
         {
             uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
         }
 
-        if (notify_val & VT03_TRIGGER_TOGGLE)
+        if (notify_val & VT03_TRIGGER_SINGLE || notify_val & MOUSE_SINGLE)
         {
-            uav_booster_cmd_ptr->trigger_enable = !uav_booster_cmd_ptr->trigger_enable;
-            uav_booster_cmd_ptr->continue_mode = !uav_booster_cmd_ptr->continue_mode;
+            uav_booster_cmd_ptr->trigger_enable = true;
+            uav_booster_cmd_ptr->single_mode = true;
         }
 
-        if (notify_val & VT03_TRIGGER_AND_FRIC_DISABLE)
+        if (notify_val & VT03_TRIGGER_CONTINUE || notify_val & MOUSE_CONTINUE)
         {
-            uav_booster_cmd_ptr->fric_enable = false;
+            uav_booster_cmd_ptr->trigger_enable = true;
+            uav_booster_cmd_ptr->continue_mode = true;
+            // uav_booster_cmd_ptr->booster_auto_flag = true;
+        }
+
+        if (notify_val & VT03_TRIGGER_DISABLE || notify_val & MOUSE_DISABLE)
+        {
             uav_booster_cmd_ptr->trigger_enable = false;
+            uav_booster_cmd_ptr->single_mode = false;
             uav_booster_cmd_ptr->continue_mode = false;
-            // uav_booster_cmd_ptr->single_mode = false;
+            // uav_booster_cmd_ptr->booster_auto_flag = false;
         }
     }
 
-    if (sw_pos_t::DOWN == vrc.switches.right.current_pos)
+    if (sw_pos_t::DOWN == vrc.switches.gear.current_pos || notify_val & MOUSE_ENTER_AUTO)
     {
-        uav_booster_cmd_ptr->fric_enable = true;
-        if (rx_data.fire)
+        // if (rx_data.fire)
+        // {
+        //     uav_booster_cmd_ptr->booster_auto_flag = true;
+        // }
+
+        if (notify_val & VT03_FRIC_TOGGLE  || notify_val & KEY_FRIC_TOGGLE)
         {
-            uav_booster_cmd_ptr->booster_auto_flag = true;
+            uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
         }
 
-        if (notify_val & VT03_TRIGGER_AND_FRIC_DISABLE)
+        if (notify_val & VT03_TRIGGER_SINGLE || notify_val & MOUSE_SINGLE)
         {
-            uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
-            uav_booster_cmd_ptr->fric_enable = false;
+            uav_booster_cmd_ptr->trigger_enable = true;
+            uav_booster_cmd_ptr->single_mode = true;
+        }
+
+        if (notify_val & VT03_TRIGGER_CONTINUE || notify_val & MOUSE_CONTINUE)
+        {
+            uav_booster_cmd_ptr->trigger_enable = true;
+            uav_booster_cmd_ptr->continue_mode = true;
+            // uav_booster_cmd_ptr->booster_auto_flag = true;
+        }
+
+        if (notify_val & VT03_TRIGGER_DISABLE || notify_val & MOUSE_DISABLE)
+        {
             uav_booster_cmd_ptr->trigger_enable = false;
-            uav_booster_cmd_ptr->booster_auto_flag = false;
+            uav_booster_cmd_ptr->single_mode = false;
+            uav_booster_cmd_ptr->continue_mode = false;
+            // uav_booster_cmd_ptr->booster_auto_flag = false;
         }
     }
 }
@@ -241,6 +245,9 @@ void booster_vt03rcmd(uint32_t notify_val)
     {
         while (true)
         {
+
+            uav_booster_ptr->heat_calculate();
+
             uint32_t notify_val = 0;
             xTaskNotifyWait(0x00, 0xFFFFFFFF, &notify_val, 0);
 
@@ -248,10 +255,11 @@ void booster_vt03rcmd(uint32_t notify_val)
             {
                 booster_dr16rcmd(notify_val);
             }
-            // else if (vt03_drv_t::instance().check_online())
-            // {
-            //     booster_vt03rcmd(notify_val);
-            // }
+            else if (vt03_drv_t::instance().check_online())
+            {
+                booster_vt03rcmd(notify_val);
+            }
+
             uav_booster_ptr->set_command(*uav_booster_cmd_ptr);
             vTaskDelay(1);
         }
@@ -271,12 +279,20 @@ void booster_vt03rcmd(uint32_t notify_val)
         sw_broker::subscribe(&vrc.switches.left, sw_event_t::MID_TO_UP, booster_task_handle, DR16_FRIC_ENABLE);
         sw_broker::subscribe(&vrc.switches.left, sw_event_t::UP_TO_MID, booster_task_handle, DR16_TRIG_ENABLE);
         sw_broker::subscribe(&vrc.switches.left, sw_event_t::MID_TO_DOWN, booster_task_handle, DR16_TRIG_AND_FRIC_DISABLE);
-        sw_broker::subscribe(&vrc.switches.left, sw_event_t::DOWN_TO_MID, booster_task_handle, AUTO_MODE_TRIG_AND_FRIC_DISABLE);
 
         //vt03
         btn_broker::subscribe(&vrc.buttons.fn_l, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_FRIC_TOGGLE);
-        btn_broker::subscribe(&vrc.buttons.trigger, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_TRIGGER_TOGGLE);
-        btn_broker::subscribe(&vrc.buttons.fn_r, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_TRIGGER_AND_FRIC_DISABLE);
+        btn_broker::subscribe(&vrc.buttons.trigger, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_TRIGGER_SINGLE);
+        btn_broker::subscribe(&vrc.buttons.fn_r, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_TRIGGER_CONTINUE);
+        btn_broker::subscribe(&vrc.buttons.fn_r, btn_event_t::PRESS_UP, booster_task_handle, VT03_TRIGGER_DISABLE);
+
+        //mouse
+        btn_broker::subscribe(&vrc.keys.q, btn_event_t::PRESS_DOWN, booster_task_handle, KEY_FRIC_TOGGLE);
+        btn_broker::subscribe(&vrc.buttons.press_l, btn_event_t::PRESS_DOWN,booster_task_handle , MOUSE_SINGLE);
+        btn_broker::subscribe(&vrc.buttons.press_l, btn_event_t::LONG_PRESS_START,booster_task_handle , MOUSE_CONTINUE);
+        btn_broker::subscribe(&vrc.buttons.press_l, btn_event_t::PRESS_UP,booster_task_handle , MOUSE_DISABLE);
+        btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::PRESS_UP,booster_task_handle , MOUSE_ENTER_AUTO);
+
 
         vTaskDelete(nullptr);
     }
