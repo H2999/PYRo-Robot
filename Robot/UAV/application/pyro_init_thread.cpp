@@ -53,6 +53,7 @@ namespace pyro
 #ifdef REFEREE_UART
             REFEREE_UART.reset(115200, UART_WORDLENGTH_8B, UART_STOPBITS_1,
                                UART_PARITY_NONE);
+            REFEREE_UART.enable_rx_dma();
             referee_drv_t::get_instance()->init();
 #endif
 
