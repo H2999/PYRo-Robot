@@ -4,7 +4,7 @@
 #include "pyro_dr16_rc_drv.h"
 #include "pyro_vt03_rc_drv.h"
 #include "pyro_rc_base_drv.h"
-#include <pyro_uart_message.h>
+// #include <pyro_uart_message.h>
 #include <pyro_core_config.h>
 
 #include "pyro_autoaim_drv.h"
@@ -246,7 +246,7 @@ void booster_vt03rcmd(uint32_t notify_val)
         while (true)
         {
 
-            uav_booster_ptr->heat_calculate();
+            // uav_booster_ptr->heat_calculate();
 
             uint32_t notify_val = 0;
             xTaskNotifyWait(0x00, 0xFFFFFFFF, &notify_val, 0);

@@ -26,7 +26,7 @@ extern "C"
         xTaskCreate(uav_autoaim_app_init, "uav_autoaim_app_init", 512, nullptr,
                     configMAX_PRIORITIES - 2, nullptr);
         xTaskCreate(uav_ui_init,"uav_ui_init",512,nullptr,
-                    configMAX_PRIORITIES - 2, nullptr);
+                    configMAX_PRIORITIES - 3, nullptr);
         xTaskCreate(start_debug_task,"start_debug_task", 512, nullptr,
                     configMAX_PRIORITIES - 2, nullptr);
         vTaskDelete(nullptr);

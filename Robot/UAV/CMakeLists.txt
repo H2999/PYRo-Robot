@@ -1,8 +1,11 @@
 add_library(UAV OBJECT
-        ui/pyro_ui_app.cpp
+        application/pyro_ui_app.cpp
         booster/fsm/pyro_booster_reset_state.cpp
         booster/booster_config.h
-        gimbal/gimbal_config.h)
+        gimbal/gimbal_config.h
+        application/pyro_ui_app.cpp
+        WS2812/WS2812.cpp
+        WS2812/WS2812.h)
 
 target_sources(UAV
         PRIVATE
@@ -30,7 +33,7 @@ target_sources(UAV
         gimbal/fsm/pyro_passive_state.cpp
         gimbal/feedforward_kf/forecast_v.cpp
 
-        ui/pyro_ui_app.cpp
+        application/pyro_ui_app.cpp
 )
 
 target_include_directories(UAV
@@ -51,7 +54,7 @@ target_link_libraries(UAV PUBLIC
 target_compile_definitions(PYRo PUBLIC
         DR16_UART=PYRO_UART5
         REFEREE_UART=PYRO_UART1
-        AUTOAIM_UART=PYRO_UART7
+        AUTOAIM_UART=PYRO_UART10
         VT03_UART=PYRO_UART7
         JCOM_DEBUG_PORT=PYRO_UART10
 )

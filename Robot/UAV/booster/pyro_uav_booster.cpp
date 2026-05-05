@@ -31,16 +31,16 @@ status_t uav_booster_t::_init()
     // booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(14.0f, 0.0f, 0.07f,0.0f,
     //     20);
 
-    booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(25.0f, 0.0f, 0.15f, 0.0f, 20);
-    booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(24.0f, 0.0f, 0.08f, 0.0f, 20);
+    booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(8.5f, 0.0f, 0.08f, 0.0f, 18);
+    booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(8.5f, 0.0f, 0.08f, 0.0f, 18);
 
     //拨弹盘pid初始化
     booster_ctx.cfg.pid_cfg.trigger_position_pid =
-        new pid_t(12.8f, 0.0006f, 0.00043f, 1.0f, 20.0f, 60, 30, 4);
+        new pid_t(9.8f, 0.0, 0.0004f, 1.0f, 20.0f, 60, 30, 4);
     booster_ctx.cfg.pid_cfg.trigger_speed_pid =
-        new pid_t(4.5f, 0.0004f, 0.0003f, 1.0f, 10.0f, 60, 30, 4);
+        new pid_t(5.0f, 0.0004f, 0.0003f, 1.0f, 10.0f, 60, 30, 4);
 
-    booster_ctx.cfg.pid_cfg.shoot_closed_pid = new pid_t(0.0172f, 0.0f, 0.00004f, 0.0f, 0.5f);
+    booster_ctx.cfg.pid_cfg.shoot_closed_pid = new pid_t(0.015f, 0.0f, 0.0004f, 0.0f, 0.4f);
     return PYRO_OK;
 }
 
@@ -133,6 +133,8 @@ void uav_booster_t::speed_control()
     {
         if (booster_ctx.shoot_data.now_bullet_speed_mps > 20.0f && booster_ctx.shoot_data.now_bullet_speed_mps < 25.0f)
         {
+            booster_ctx.shoot_data.ball_speed[4] = booster_ctx.shoot_data.ball_speed[3];
+            booster_ctx.shoot_data.ball_speed[3] = booster_ctx.shoot_data.ball_speed[2];
             booster_ctx.shoot_data.ball_speed[2] = booster_ctx.shoot_data.ball_speed[1];
             booster_ctx.shoot_data.ball_speed[1] = booster_ctx.shoot_data.ball_speed[0];
             booster_ctx.shoot_data.ball_speed[0] = booster_ctx.shoot_data.now_bullet_speed_mps;
@@ -145,17 +147,22 @@ void uav_booster_t::speed_control()
                 }
             }
 
-            constexpr float w0 = 0.6f;
-            constexpr float w1 = 0.25f;
+            constexpr float w0 = 0.4f;
+            constexpr float w1 = 0.2f;
             constexpr float w2 = 0.15f;
+            constexpr float w3 = 0.15f;
+            constexpr float w4 = 0.1f;
 
 
             float e0 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[0];
             float e1 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[1];
             float e2 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[2];
+            float e3 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[3];
+            float e4 = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.ball_speed[4];
 
             float signed_weighted_mse = (w0 * e0 * std::abs(e0)) + (w1 * e1 * std::abs(e1)) +
-                                    (w2 * e2 * std::abs(e2));
+                                    (w2 * e2 * std::abs(e2))+ (w3 * e3 * std::abs(e3))
+                                    + (w4 * e4 * std::abs(e4));
 
             booster_ctx.shoot_data.speed_increment = booster_ctx.cfg.pid_cfg.shoot_closed_pid->calculate(
                 signed_weighted_mse, 0);

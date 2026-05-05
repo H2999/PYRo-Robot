@@ -27,12 +27,12 @@ status_t uav_gimbal_t::_init()
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_rotate_range(-30, 30);
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_torque_range(-7, 7);
 
-    gimbal_ctx.yaw_td.r = 350.0f;   // 根据响应速度调整 响应慢的话调大到 600-800 计算公式 比如目标角度变了0.1° 我想让云台在50ms内跟上这个变化
+    gimbal_ctx.yaw_td.r = 500.0f;   // 根据响应速度调整 响应慢的话调大到 600-800 计算公式 比如目标角度变了0.1° 我想让云台在50ms内跟上这个变化
                                     // 0.1 = 1/2 * r * （0.05）² 但要克服阻力 惯性等因素 所以要给大一点
-    gimbal_ctx.yaw_td.h = 0.01f;   // 滤波因子，一般设为 5~10 倍 dt 响应慢的话可以适当调小
+    gimbal_ctx.yaw_td.h = 0.005f;   // 滤波因子，一般设为 5~10 倍 dt 响应慢的话可以适当调小
     gimbal_ctx.yaw_td.dt = 0.001f;  //控制周期
 
-    gimbal_ctx.pitch_td.r = 400.0f;
+    gimbal_ctx.pitch_td.r = 700.0f;
     gimbal_ctx.pitch_td.h = 0.004f;
     gimbal_ctx.pitch_td.dt = 0.001f;
 
@@ -41,20 +41,20 @@ status_t uav_gimbal_t::_init()
     gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(3.25f,0.08f,0.0003f,1.5f,
                 3.0f,50,20,4);
 
-    gimbal_ctx.cfg.pid_ctx.pitch_position_pid = new pid_t(18.2f,0.01f,0.0005f,0.4f,
-                7.0f,50,30,4);
-    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid = new pid_t(1.1f,0.065f,0.0008f,1.5f,
+    gimbal_ctx.cfg.pid_ctx.pitch_position_pid = new pid_t(24.2f,0.0004f,0.006f,0.4f,
+                8.0f,50,30,4);
+    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid = new pid_t(1.25f,0.065f,0.008f,1.2f,
                 7.0f,30,15,4);
 
     //自瞄pid 4/23版
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.5f,0.0f,0.0f,0.0f,
-               10.0f,50,20,4);
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(3.2f,0.08f,0.0003f,1.5f,
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.1f,0.0f,0.0f,0.0f,
+               8.0f,50,20,4);
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(2.9f,0.08f,0.0003f,1.0f,
                 3.0f,50,20,4);
 
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(18.0f,0.01f,0.0005f,0.4f,
-                7.0f,50,30,4);
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(1.05f,0.065f,0.0007f,1.5f,
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(21.5f,0.002f,0.006f,0.5f,
+                8.0f,50,30,4);
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(1.1f,0.065f,0.0007f,1.0f,
                 7.0f,30,15,4);
 
     return PYRO_OK;
@@ -166,20 +166,21 @@ void uav_gimbal_t::rc_gimbal_control(gimbal_ctx_t *ctx)
 //     float pitch_speed_ff = ctx->feedforward_data.pitch_ff;
 //
 //     ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.auto_pitch_position_pid->calculate(
-//              ctx->data._target_pitch_angle, ctx->data._current_imu_pitch_angle) + pitch_speed_ff;
+//              ctx->data._target_pitch_angle, ctx->data._current_imu_pitch_angle);// + pitch_speed_ff;
 //
 //     ctx->data.gravity_compensate = (1.7671f * ctx->data.pitch_motor_angle - 0.9575f) * ctx->data.pitch_motor_angle - 1.1147f;
 //     if (abs(ctx->data.gravity_compensate) > 1.35f) ctx->data.gravity_compensate = 1.35f;
 //
 //     ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.auto_pitch_speed_pid->calculate(
-//         ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed) + ctx->data.gravity_compensate;
+//         ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed);// + ctx->data.gravity_compensate;
 // }
 
 void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
 {
     // 防止切入瞬间抖动 如果刚开启自瞄 强制 TD 位置等于当前 IMU 位置
     static bool last_auto_flag = false;
-    if (ctx->auto_ctx.auto_enable && !last_auto_flag) {
+    if (ctx->auto_ctx.auto_enable && !last_auto_flag)
+    {
         ctx->yaw_td.x1 = ctx->data._current_imu_yaw_angle;
         ctx->yaw_td.x2 = ctx->data._current_imu_yaw_speed;
         ctx->pitch_td.x1 = ctx->data._current_imu_pitch_angle;
@@ -213,7 +214,7 @@ void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
     }
 
     // 3. Pitch 轴计算
-    float pitch_speed_ff = ctx->pitch_td.x2;
+    float pitch_speed_ff = ctx->pitch_td.x2 * 0.35f;
 
     ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.auto_pitch_position_pid->calculate(
              ctx->pitch_td.x1, ctx->data._current_imu_pitch_angle) + pitch_speed_ff;
@@ -255,7 +256,7 @@ void uav_gimbal_t::td_calculate(TD_t *td, float target)
     const float a0 = td->h * td->x2;
     const float y = x1_err + a0;
 
-    auto sgn = [](float x) { return (x > 0.0f) ? 1.0f : ((x < 0.0f) ? -1.0f : 0.0f); };
+    auto sgn = [](const float x) { return (x > 0.0f) ? 1.0f : ((x < 0.0f) ? -1.0f : 0.0f); };
 
     float a1 = sqrtf(d * (d + 8.0f * fabsf(y)));
     float a2 = a0 + sgn(y) * (a1 - d) * 0.5f;
@@ -268,6 +269,11 @@ void uav_gimbal_t::td_calculate(TD_t *td, float target)
 
     td->x1 += td->dt * td->x2;
     td->x2 += td->dt * fh;
+}
+
+uav_gimbal_t::gimbal_ctx_t* uav_gimbal_t::get_data()
+{
+    return &gimbal_ctx;
 }
 
 }

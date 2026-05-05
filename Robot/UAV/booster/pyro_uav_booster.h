@@ -167,7 +167,7 @@ private:
             // 等级2
             {110, 30, 4.8, 9.8},
             // 等级3
-            {120, 40, 5.6, 11.2},
+            {120, 40, 5.6, 10.2},
             // 等级4
             {130, 50, 6.0, 11.6},
             // 等级5
@@ -191,7 +191,7 @@ private:
         //目标转速
         float target_bullet_speed = 23.5f;
         //施加给摩擦轮的速度
-        float fric_mps = 21.3f;
+        float fric_mps = 21.0f;
 
         float Q_max{};
         float Q_cd{};

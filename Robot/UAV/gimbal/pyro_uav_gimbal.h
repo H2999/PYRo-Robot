@@ -67,12 +67,14 @@ class uav_gimbal_t final : public module_base_t<uav_gimbal_t,uav_gimbal_cmd_t,ua
     struct gimbal_ctx_t;
     struct gimbal_auto_ctx_t;
     struct TD_t;
+    struct ui_ctx_t;
 
 public:
     uav_gimbal_t(const uav_gimbal_t &)            = delete;
     uav_gimbal_t &operator=(const uav_gimbal_t &) = delete;
 
     ins_drv_t *gimbal_ins;
+    gimbal_ctx_t* get_data();
 private:
     uav_gimbal_t();
     ~uav_gimbal_t() override = default;
@@ -163,6 +165,11 @@ private:
         float shoot_pitch_angle{};
     };
 
+    struct ui_ctx_t
+    {
+        bool is_aiming_locked{false};
+    };
+
     struct gimbal_ctx_t
     {
         uav_gimbal_cfg_t cfg;
@@ -170,6 +177,7 @@ private:
         TD_t yaw_td;
         TD_t pitch_td;
         data_ctx_t data{};
+        ui_ctx_t ui_ctx{};
         uav_gimbal_cmd_t *cmd{};
         gimbal_auto_ctx_t auto_ctx{};
     };

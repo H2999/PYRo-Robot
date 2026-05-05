@@ -19,6 +19,7 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
     }
     else
     {
+        owner->gimbal_ctx.ui_ctx.is_aiming_locked = true;
         owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.cmd->yaw_target_angle;
     }
     //限位
