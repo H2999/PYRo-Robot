@@ -36,7 +36,7 @@ status_t uav_gimbal_t::_init()
     gimbal_ctx.pitch_td.h = 0.004f;
     gimbal_ctx.pitch_td.dt = 0.001f;
 
-    gimbal_ctx.cfg.pid_ctx.yaw_position_pid = new pid_t(22.5f,0.0f,0.0f,0.0f,
+    gimbal_ctx.cfg.pid_ctx.yaw_position_pid = new pid_t(24.5f,0.0f,0.0f,0.0f,
                10.0f,50,20,4);
     gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(3.25f,0.08f,0.0003f,1.5f,
                 3.0f,50,20,4);
@@ -46,16 +46,16 @@ status_t uav_gimbal_t::_init()
     gimbal_ctx.cfg.pid_ctx.pitch_speed_pid = new pid_t(1.1f,0.065f,0.008f,1.2f,
                 7.0f,30,15,4);
 
-    //自瞄pid 4/23版
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.1f,0.0f,0.0f,0.0f,
-               8.0f,50,20,4);
+    //自瞄pid
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(24.1f,0.0f,0.0f,0.0f,
+               8.0f,50,20,2);
     gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(2.9f,0.08f,0.0003f,1.0f,
-                3.0f,50,20,4);
+                3.0f,50,20,2);
 
     gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(21.5f,0.002f,0.006f,0.5f,
-                8.0f,50,30,4);
+                8.0f,50,30,2);
     gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(1.1f,0.065f,0.0007f,1.0f,
-                7.0f,30,15,4);
+                7.0f,30,15,2);
 
     return PYRO_OK;
 }
