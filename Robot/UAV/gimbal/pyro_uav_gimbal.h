@@ -63,7 +63,6 @@ class uav_gimbal_t final : public module_base_t<uav_gimbal_t,uav_gimbal_cmd_t,ua
     friend class jcom_drv_t;
 
     struct data_ctx_t;
-    struct feedforward_data_ctx_t;
     struct gimbal_ctx_t;
     struct gimbal_auto_ctx_t;
     struct TD_t;
@@ -90,28 +89,6 @@ private:
     static void send_motor_command(const gimbal_ctx_t *ctx);
     static void normalize_angle(float& angle);
     static void td_calculate(TD_t *td, float target);
-
-    struct feedforward_data_ctx_t
-    {
-        float last_raw_yaw{};
-        float last_raw_pitch{};
-        float now_yaw_target_energy{};
-
-        float last_yaw_target_angle{};
-        float now_yaw_target_angle{};
-
-        float last_pitch_target_angle{};
-        float now_pitch_target_angle{};
-
-        float dt = 0.001f;
-        float yaw_kff = 0.5f;
-        float pitch_kff = 0.5f;
-
-        float filtered_yaw_v;
-        float filtered_pitch_v;
-        float yaw_ff{};
-        float pitch_ff{};
-    };
 
     struct TD_t{
         float r;      // 快速因子
@@ -163,6 +140,9 @@ private:
         uint8_t auto_enable{0};
         float shoot_yaw_angle{};
         float shoot_pitch_angle{};
+
+        float kalman_yaw_v{};
+        float kalman_pitch_v{};
     };
 
     struct ui_ctx_t
@@ -173,7 +153,6 @@ private:
     struct gimbal_ctx_t
     {
         uav_gimbal_cfg_t cfg;
-        feedforward_data_ctx_t feedforward_data;
         TD_t yaw_td;
         TD_t pitch_td;
         data_ctx_t data{};

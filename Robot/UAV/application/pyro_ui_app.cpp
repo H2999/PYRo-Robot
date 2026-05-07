@@ -6,31 +6,37 @@
 #include "pyro_uav_booster.h"
 #include "pyro_uav_gimbal.h"
 #include "pyro_vt03_rc_drv.h"
+#include "../WS2812/WS2812.h"
 
 using namespace pyro;
 // ReSharper disable CppExpressionWithoutSideEffects
 static referee_drv_t *referee_ptr                   = nullptr;
 static ui_drv_t *ui_ptr                             = nullptr;
+static WS2812_drv_t* light_ptr                      = nullptr;
 extern uav_booster_t *uav_booster_ptr;
 extern uav_gimbal_t *gimbal_ptr;
 
-static uint32_t KEY_CTRL                            = (1 << 0);
-static uint32_t KEY_SHIFT                           = (1 << 1);
-static uint32_t KEY_Z                               = (1 << 2);
-static uint32_t KEY_W                               = (1 << 2);
-static uint32_t KEY_A                               = (1 << 2);
-static uint32_t KEY_S                               = (1 << 2);
-static uint32_t KEY_D                               = (1 << 2);
+static uint32_t KEY_CTRL                           = (1 << 0);
+static uint32_t KEY_SHIFT                          = (1 << 1);
+static uint32_t KEY_Z                              = (1 << 2);
+static uint32_t KEY_W_ON                           = (1 << 3);
+static uint32_t KEY_A_ON                           = (1 << 4);
+static uint32_t KEY_S_ON                           = (1 << 5);
+static uint32_t KEY_D_ON                           = (1 << 6);
+
+static uint32_t KEY_W_OFF                          = (1 << 7);
+static uint32_t KEY_A_OFF                          = (1 << 8);
+static uint32_t KEY_S_OFF                          = (1 << 9);
+static uint32_t KEY_D_OFF                          = (1 << 10);
 
 static TaskHandle_t ui_task_handle                  = nullptr;
 
 static float fric1_mps                              = 0.0f;
 static float fric2_mps                              = 0.0f;
 static bool flush_flag                              = false;
+static bool heat_bar_initialized = false;
 
-/**
- * @brief 静态 UI 绘制（仅在初始化或手动刷新时调用，使用 ADD）
- */
+//静态ui绘制
 void ui_draw_static()
 {
     // 1. 绘制矩形 (RECT)
@@ -42,50 +48,52 @@ void ui_draw_static()
     //    .draw_line("L02", ui_operate::ADD, 1, pyro::ui_color::ORANGE, 4, 860,
     //               585, 1060, 585);
 
-        ui_ptr->draw_rect("R01", ui_operate::ADD, 1, ui_color::GREEN, 3,
-                          815, 455, 1105, 620)
-        .draw_line("L01", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                                1520, 580, 1820,580)
-        .draw_line("L02", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                                1520, 410, 1820,410)
-        // .draw_line("L03", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-        //                         1520, 580, 1820,580)
-        // .draw_line("L04", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-        //                         1520, 410, 1820,410)
-        .draw_circle("C01", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                            1580, 750, 30)
-        .draw_circle("C02", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                            1700, 750, 30);
-        // .draw_circle("C03", ui_operate::ADD, 1, ui_color::GREEN, 35,
-        //                     1580, 750, 17)
-        // .draw_circle("C04", ui_operate::ADD, 1, ui_color::GREEN, 35,
-        //                     1700, 750, 17);
+    ui_ptr->draw_rect("R01", ui_operate::ADD, 1, ui_color::GREEN, 3,
+                      815, 455, 1105, 620)
+    //热量进度条
+    .draw_rect("HEAT_BG", ui_operate::ADD, 1, ui_color::CYAN, 1,
+              715, 140, 1015, 230)
+    .draw_rect("HEAT_BAR", ui_operate::ADD, 1, ui_color::GREEN, 3,
+                  715, 140, 715, 230)
+    .draw_line("FRIC1_SPEED", ui_operate::ADD, 1, ui_color::YELLOW, 4,
+                            1520, 580, 1820,580)
+    .draw_line("FRIC2_SPEED", ui_operate::ADD, 1, ui_color::YELLOW, 4,
+                            1520, 410, 1820,410)
+    .draw_circle("FRIC1_MODE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
+                        1580, 750, 30)
+    .draw_circle("FRIC2_MODE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
+                        1700, 750, 30);
 
     ui_ptr->flush(); // 拼包发送
     // 1. 绘制静态文本标签 (注意名字不能重复)
     ui_ptr->draw_string("ST1", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
-                        20, 2, 110, 800, "FRIC1:");
+                        20, 4, 1540, 620, " YAW :");
     ui_ptr->draw_string("ST2", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
-                        20, 2, 110, 750, "FRIC2:");
+                        20, 4, 1540, 450, "PITCH:");
 
     ui_ptr->draw_string("ST3", pyro::ui_operate::ADD, 3, pyro::ui_color::ALLY,
-                        20, 4, 1540, 620, " YAW :");
+                        20, 2, 110, 800, "FRIC1:");
     ui_ptr->draw_string("ST4", pyro::ui_operate::ADD, 3, pyro::ui_color::ALLY,
-                        20, 4, 1540, 450, "PITCH:");
+                        20, 2, 110, 750, "FRIC2:");
+
+    ui_ptr->draw_string("ST5", pyro::ui_operate::ADD, 3, pyro::ui_color::GREEN,
+                       20, 4, 800, 115, "HEAT:");
+    ui_ptr->draw_string("ST6", pyro::ui_operate::ADD, 3, pyro::ui_color::GREEN,
+                        20, 4, 920, 115, "PREC:");
 
     // 2. 为动态数值提前进行 ADD 占位，赋予初始值，方便后续直接 MODIFY
     ui_ptr
         ->draw_float("DF1", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
                      2, 230, 800, 0.0f)
         .draw_float("DF2", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
-                    2, 230, 750, 0.0f);
+                    2, 230, 750, 0.0f)
+        .draw_float("DF3", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
+                     2, 1600, 580, 0.0f)
+        .draw_float("DF4", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
+                    2, 1600, 410, 0.0f);
     ui_ptr->flush(); // 拼包发送
 }
-
-/**
- * @brief 动态 UI 更新（定时刷新，必须使用 MODIFY）
- */
-
+//绘制自瞄ui
 void update_aim_ui()
 {
     static float ui_radius = 80.0f;
@@ -96,7 +104,6 @@ void update_aim_ui()
     bool auto_aim_on = gimbal_ptr->get_data()->cmd->auto_flag;
     bool target_locked = gimbal_ptr->get_data()->ui_ctx.is_aiming_locked;
 
-    // 2. 处理关闭状态
     if (!auto_aim_on)
     {
         if (is_on_screen)
@@ -117,7 +124,7 @@ void update_aim_ui()
     else
     {
         target_color = ui_color::CYAN;
-        if (ui_radius < 100.0f) ui_radius += 5.0f;
+        if (ui_radius < 60.0f) ui_radius += 5.0f;
     }
 
     // 4. 绘图：判断是该 ADD 还是 MODIFY
@@ -135,11 +142,73 @@ void update_aim_ui()
                             target_color, 4, 960, 540, static_cast<uint16_t>(ui_radius));
     }
 }
+//绘制热量进度条
+void update_heat_progress_bar(float current_heat, float max_heat)
+{
+    // 计算热量百分比
+    float heat_percentage = 0.0f;
+    if (max_heat > 0.0f)
+    {
+        heat_percentage = current_heat / max_heat;
+    }
 
+    heat_percentage = std::clamp(heat_percentage, 0.0f, 1.0f);
+
+    const uint16_t start_x = 715;
+    const uint16_t start_y = 140;
+    const uint16_t end_x = 1015;
+    const uint16_t end_y = 230;
+    const uint16_t total_width = end_x - start_x;  // 300px
+
+    // 计算当前进度条终点
+    uint16_t current_end_x = start_x + static_cast<uint16_t>(total_width * heat_percentage);
+
+    ui_color bar_color = ui_color::GREEN;
+    if (heat_percentage > 0.8f) bar_color = ui_color::ORANGE;
+    else if (heat_percentage > 0.5f) bar_color = ui_color::YELLOW;
+
+    // 删除旧的进度条（如果存在）
+    if (!heat_bar_initialized)
+    {
+        ui_ptr->draw_rect("HEAT_BAR", ui_operate::ADD, 1, bar_color, 3,
+                         start_x, start_y, start_x, end_y);  // 初始宽度0
+        heat_bar_initialized = true;
+    }
+
+    // 之后每次用 MODIFY 更新
+    ui_ptr->draw_rect("HEAT_BAR", ui_operate::MODIFY, 1, bar_color, 3,
+                     start_x, start_y, current_end_x, end_y);
+
+    // 添加新的进度条（只有当进度>0时才绘制）
+    if (current_end_x > start_x)
+    {
+        ui_ptr->draw_rect("HEAT_BAR", ui_operate::ADD, 1, bar_color, 3,
+                         start_x, start_y, current_end_x, end_y);
+        heat_bar_initialized = true;
+    }
+    else
+    {
+        heat_bar_initialized = false;
+    }
+
+    // 可选：显示热量数值和百分比
+    ui_ptr->draw_float("HEAT_VAL", ui_operate::MODIFY, 4, ui_color::WHITE,
+                       20, 2, 860, 115, current_heat)
+          .draw_float("HEAT_PCT", ui_operate::MODIFY, 4, ui_color::WHITE,
+                       20, 2, 980, 115, heat_percentage * 100.0f);
+}
+//绘制发射机构ui 是否开启摩擦轮 以及当前弹速
 void update_booster_ui()
 {
     fric1_mps = uav_booster_ptr->get_data()->data_ctx.current_fric_mps[0];
     fric2_mps = uav_booster_ptr->get_data()->data_ctx.current_fric_mps[1];
+
+    // 获取热量数据
+    float current_heat = uav_booster_ptr->get_data()->shoot_data.Q_now_no_referee;
+    float max_heat = uav_booster_ptr->get_data()->shoot_data.Q_max;
+
+    // 更新热量进度条
+    update_heat_progress_bar(current_heat, max_heat);
 
     if (uav_booster_ptr->get_data()->cmd->fric_enable)
     {
@@ -166,7 +235,7 @@ void update_booster_ui()
               20, 2, 230, 750, 0.0f);
     }
 }
-
+//绘制两轴角度
 void update_gimbal_ui()
 {
     float yaw_angle = gimbal_ptr->get_data()->data._current_imu_yaw_angle;
@@ -177,7 +246,7 @@ void update_gimbal_ui()
     .draw_float("DF4", pyro::ui_operate::MODIFY, 4,
                         pyro::ui_color::ALLY, 20, 4, 1600, 450, pitch_angle);
 }
-
+//调用update_aim_ui、update_gimbal_ui等动态刷新ui
 void ui_update_dynamic()
 {
     update_gimbal_ui();
@@ -186,19 +255,48 @@ void ui_update_dynamic()
 
     update_aim_ui();
 
+    update_heat_progress_bar(uav_booster_ptr->get_data()->shoot_data.Q_now_no_referee,
+                                                    uav_booster_ptr->get_data()->shoot_data.Q_max);
+
     ui_ptr->flush();
 }
-
+//键盘手动刷新ui 控制灯带指示飞手
 void vt03_control(uint32_t notify_val)
 {
     read_scope_lock lock(vt03_drv_t::get_lock());
     const auto &vrc = rc_drv_t::read();
 
-    uint32_t is_flush_ui = KEY_CTRL & KEY_SHIFT & KEY_S;
-
-    if (notify_val & is_flush_ui)
+    if (notify_val & KEY_SHIFT)
     {
         flush_flag = true;
+    }
+
+    if (notify_val & KEY_W_ON)
+    {
+        light_ptr->set_all(57, 255, 0); // 荧光绿
+    }
+    if (notify_val & KEY_S_ON)
+    {
+        light_ptr->set_all(255, 255, 0); //荧光黄
+    }
+    if (notify_val & KEY_A_ON)
+    {
+        light_ptr->set_all(255, 100, 0); //荧光橙
+    }
+    if (notify_val & KEY_D_ON)
+    {
+        light_ptr->set_all(255, 0, 255); //荧光粉
+    }
+
+    if ((notify_val & KEY_W_OFF) || (notify_val & KEY_S_OFF)
+        || (notify_val & KEY_A_OFF) || (notify_val & KEY_D_OFF))
+    {
+        light_ptr->set_all(0, 0, 0); // 关闭
+    }
+
+    if (!light_ptr->WS2812_isbusy())
+    {
+        light_ptr->update_light();
     }
 }
 
@@ -211,6 +309,10 @@ extern "C"
         {
             vTaskDelay(pdMS_TO_TICKS(500));
         }
+
+        //初始让灯灭
+        light_ptr->set_all(0, 0, 0);
+        light_ptr->update_light();
 
         // 2. 初始清理操作，并绘制静态结构
         ui_ptr->clear_all();
@@ -236,6 +338,8 @@ extern "C"
                     vTaskDelay(pdMS_TO_TICKS(200));
                     ui_draw_static();
                     vTaskDelay(pdMS_TO_TICKS(100));
+
+                    heat_bar_initialized = false;
                     flush_flag = false;
                 }
                 else
@@ -251,7 +355,10 @@ extern "C"
     void uav_ui_init(void *argument)
     {
         referee_ptr = referee_drv_t::get_instance();
+        light_ptr   = WS2812_drv_t::get_instance();
         ui_ptr      = new ui_drv_t(referee_ptr);
+
+        light_ptr->WS2812_Init();
 
         auto &vrc =rc_drv_t::read();
         gimbal_ptr->start();
@@ -265,11 +372,15 @@ extern "C"
         btn_broker::subscribe(&vrc.keys.z, btn_event_t::PRESS_DOWN, ui_task_handle, KEY_Z);
 
         //点亮灯珠 来提示飞手
-        btn_broker::subscribe(&vrc.keys.w, btn_event_t::PRESS_DOWN, ui_task_handle, KEY_W);
-        btn_broker::subscribe(&vrc.keys.a, btn_event_t::PRESS_DOWN, ui_task_handle, KEY_A);
-        btn_broker::subscribe(&vrc.keys.s, btn_event_t::PRESS_DOWN, ui_task_handle, KEY_S);
-        btn_broker::subscribe(&vrc.keys.d, btn_event_t::PRESS_DOWN, ui_task_handle, KEY_D);
+        btn_broker::subscribe(&vrc.keys.w, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_W_ON);
+        btn_broker::subscribe(&vrc.keys.a, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_A_ON);
+        btn_broker::subscribe(&vrc.keys.s, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_S_ON);
+        btn_broker::subscribe(&vrc.keys.d, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_D_ON);
 
+        btn_broker::subscribe(&vrc.keys.w, btn_event_t::PRESS_UP, ui_task_handle, KEY_W_OFF);
+        btn_broker::subscribe(&vrc.keys.a, btn_event_t::PRESS_UP, ui_task_handle, KEY_A_OFF);
+        btn_broker::subscribe(&vrc.keys.s, btn_event_t::PRESS_UP, ui_task_handle, KEY_S_OFF);
+        btn_broker::subscribe(&vrc.keys.d, btn_event_t::PRESS_UP, ui_task_handle, KEY_D_OFF);
 
         vTaskDelete(nullptr);
     }

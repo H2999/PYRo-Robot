@@ -34,6 +34,8 @@ struct rx_data_t
     float shoot_yaw;
     float shoot_pitch;
     float shoot_dist;
+    float yaw_omega;
+    float pitch_omega;
 };
 #pragma pack(pop)
 

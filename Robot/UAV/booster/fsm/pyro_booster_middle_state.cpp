@@ -9,9 +9,9 @@ void uav_booster_t::fsm_active_t::state_middle_t::enter(uav_booster_t *owner)
 void uav_booster_t::fsm_active_t::state_middle_t::execute(uav_booster_t *owner)
 {
     if (abs(owner->booster_ctx.data_ctx.current_fric_mps[0] -
-            owner->booster_ctx.data_ctx.target_fric_mps[0]) < 0.6f &&
+            owner->booster_ctx.data_ctx.target_fric_mps[0]) < 0.7f &&
         abs(owner->booster_ctx.data_ctx.current_fric_mps[1] -
-            owner->booster_ctx.data_ctx.target_fric_mps[1]) < 0.6f)
+            owner->booster_ctx.data_ctx.target_fric_mps[1]) < 0.7f)
     {
         if (owner->booster_ctx.cmd->trigger_enable)
         {

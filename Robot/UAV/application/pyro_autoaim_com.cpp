@@ -17,16 +17,7 @@ static uint8_t enemy_color = 0;
 void update_and_send_feedback()
 {
     if (gimbal_ptr == nullptr) return;
-
-    // last = now;
-    //
-    // now = dwt_drv_t::get_timeline_ms();
-
     auto& tx_data = autoaim_drv_ptr->get_tx_data();
-
-    // delta = now - last;
-
-
 
     //yaw pitch roll
     float angle[3];

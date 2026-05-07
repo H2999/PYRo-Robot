@@ -95,7 +95,7 @@ void gimbalvt03cmd(uint32_t notify_val)
         gimbal_cmd_ptr->auto_flag = false;
 
         gimbal_cmd_ptr->pitch_delta_angle =
-            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.1f;
+            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.06f;
         gimbal_cmd_ptr->yaw_delta_angle =
             -vrc.axes.rx * 0.0015f - vrc.mouse_axes.x * 0.12f;
     }
