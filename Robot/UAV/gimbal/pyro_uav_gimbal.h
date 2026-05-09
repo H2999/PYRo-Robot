@@ -67,6 +67,9 @@ class uav_gimbal_t final : public module_base_t<uav_gimbal_t,uav_gimbal_cmd_t,ua
     struct gimbal_auto_ctx_t;
     struct TD_t;
     struct ui_ctx_t;
+    struct pitch_ldob_t;
+    // 添加 ESO 结构体
+    struct eso_t;
 
 public:
     uav_gimbal_t(const uav_gimbal_t &)            = delete;
@@ -90,12 +93,24 @@ private:
     static void normalize_angle(float& angle);
     static void td_calculate(TD_t *td, float target);
 
+    static void eso_update(eso_t *eso, float y, float u);
+
     struct TD_t{
         float r;      // 快速因子
         float h;      // 滤波因子
         float dt;     // 周期
         float x1;     // 平滑位置输出
         float x2;     // 平滑速度输出
+    };
+
+    // --- 新增 ESO 实例 ---
+    struct eso_t {
+        float r;          // 这里的 r 对应 ADRC 中的带宽 omega_o
+        float b0;         // 控制增益
+        float dt;         // 采样周期
+        float z1;         // 估计角度
+        float z2;         // 估计角速度
+        float z3;         // 估计总扰动 (ADRC 核心)
     };
 
     struct data_ctx_t
@@ -133,6 +148,7 @@ private:
         float pitch_real_min_limit_angle{};
 
         float gravity_compensate{};
+        float ldob_compensation{};
     };
 
     struct gimbal_auto_ctx_t
@@ -159,6 +175,9 @@ private:
         ui_ctx_t ui_ctx{};
         uav_gimbal_cmd_t *cmd{};
         gimbal_auto_ctx_t auto_ctx{};
+
+        eso_t yaw_eso;
+        eso_t pitch_eso;
     };
 
     gimbal_ctx_t gimbal_ctx;

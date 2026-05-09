@@ -13,14 +13,15 @@ void uav_booster_t::fsm_active_t::shoot_auto_aim_t::execute(uav_booster_t *owner
     if (owner->booster_ctx.cmd->booster_auto_flag)
     {
         //有裁判系统的热量限制
-        const int level = owner->booster_ctx.shoot_data.robot_level;
+        // const int level = owner->booster_ctx.shoot_data.robot_level;
         // const float Q_res = owner->booster_ctx.shoot_data.Q_res;
 
         //无裁判系统的热量限制
         const float Q_now = owner->booster_ctx.shoot_data.Q_now_no_referee;
         const float Q_res = owner->booster_ctx.shoot_data.Q_max - Q_now;
 
-        owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control(1, Q_res);
+        // owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control(1, Q_res);
+        owner->booster_ctx.data_ctx.target_trigger_radps = 6.0f;
     }
     else
     {

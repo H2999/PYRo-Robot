@@ -9,7 +9,7 @@
 constexpr float FRIC1_RADIUS = 0.03f;
 constexpr float FRIC2_RADIUS = 0.03f;
 
-constexpr float shoot_torque_threshold = 20.0f;
+constexpr float shoot_torque_threshold = 12.0f;
 constexpr float shoot_time_threshold = 12.0f;
 constexpr uint8_t _17mm_ball_heat = 10;
 

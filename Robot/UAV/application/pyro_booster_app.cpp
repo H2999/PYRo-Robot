@@ -26,8 +26,8 @@ constexpr uint32_t MOUSE_SINGLE                        = (1 << 7);
 constexpr uint32_t MOUSE_CONTINUE                      = (1 << 8);
 constexpr uint32_t MOUSE_DISABLE_TRIGGER               = (1 << 9);
 constexpr uint32_t MOUSE_ENTER_AUTO                    = (1 << 10);
-constexpr uint32_t MOUSE_DISABLE_FRIC                  = (1 << 10);
-constexpr uint32_t KEY_FRIC_TOGGLE                     = (1 << 11);
+constexpr uint32_t MOUSE_DISABLE_FRIC                  = (1 << 11);
+constexpr uint32_t KEY_FRIC_TOGGLE                     = (1 << 12);
 
 
 static TaskHandle_t booster_task_handle       = nullptr;
@@ -253,8 +253,6 @@ void booster_vt03rcmd(uint32_t notify_val)
         while (true)
         {
 
-            uav_booster_ptr->heat_calculate();
-
             uint32_t notify_val = 0;
             xTaskNotifyWait(0x00, 0xFFFFFFFF, &notify_val, 0);
 
@@ -290,7 +288,7 @@ void booster_vt03rcmd(uint32_t notify_val)
         //vt03
         btn_broker::subscribe(&vrc.buttons.fn_l, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_FRIC_TOGGLE);
         btn_broker::subscribe(&vrc.buttons.trigger, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_TRIGGER_SINGLE);
-        btn_broker::subscribe(&vrc.buttons.fn_r, btn_event_t::PRESS_DOWN, booster_task_handle, VT03_TRIGGER_CONTINUE);
+        btn_broker::subscribe(&vrc.buttons.fn_r, btn_event_t::LONG_PRESS_START, booster_task_handle, VT03_TRIGGER_CONTINUE);
         btn_broker::subscribe(&vrc.buttons.fn_r, btn_event_t::PRESS_UP, booster_task_handle, VT03_TRIGGER_DISABLE);
 
         //mouse

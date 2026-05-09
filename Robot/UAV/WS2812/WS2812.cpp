@@ -19,7 +19,7 @@ namespace pyro
     void WS2812_drv_t::WS2812_Init()
     {
         // 启动PWM输出
-        HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+        HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
         //高级定时器TIM1还要再使能一次
         TIM1->BDTR |= TIM_BDTR_MOE;  // 或者用 HAL 函数
     }
@@ -102,7 +102,7 @@ namespace pyro
 
         // 启动DMA传输
         led_busy = 1;
-        HAL_TIM_PWM_Start_DMA(&htim1, TIM_CHANNEL_1,
+        HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_1,
                              reinterpret_cast<uint32_t*>(pwm_buffer),
                              LED_COUNT * BITS_PER_LED + RESET_PULSES);
 

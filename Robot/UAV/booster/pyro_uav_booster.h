@@ -87,18 +87,21 @@ private:
     void fric_control();
     void trigger_position_control();
     void trigger_speed_control();
-    void send_fric_command();
+    void send_fric_command() const;
     void speed_control();
     void speed_filter();
-    void send_trigger_command();
+    void send_trigger_command() const;
+    // void apply_heat_limit_strategy(uint8_t level,float Q_res);
     //基于裁判系统的热量控制
-    float heat_control(int level, float Q_res);
+    [[nodiscard]] float heat_control_referee(uint8_t level, float Q_res) const;
+    [[nodiscard]] float heat_control_no_referee(uint8_t level, float Q_res) const;
     //无裁判系统的热量控
 
     static float normalize_angle(float angle);
 
     struct data_ctx_t
     {
+        float torque{};
         float last_torque{};
         float now_torque{};
 
@@ -120,6 +123,10 @@ private:
         //输出扭矩
         float fric_output_torque[2]{};
         float trigger_output_torque{0};
+        float last_trigger_rad{0};
+        float accumulated_rad{};
+
+        float delta{};
     };
 
     struct booster_auto_ctx_t
@@ -127,22 +134,6 @@ private:
         uint8_t fire_enable;
         float avg_speed;
     };
-
-    // struct heat_control_t
-    // {
-    //     //功率控制相关数据
-    //     float Q_max{};
-    //     float Q_cd{};
-    //     float Q_now{};
-    //     float Q_res{};
-    //
-    //     uint8_t Q_warn{200};
-    //     uint8_t Q_saturation{50};
-    //     uint8_t Q_threshold{20};
-    //
-    //     float speed_max{9.0f};
-    //     float trigger_speed{};
-    // };
 
     struct heat_control_t{
         float Q_max;         // 热量上限
@@ -159,14 +150,15 @@ private:
         //用来给视觉发送enermy_color
         float robot_id{};
         uint8_t robot_level{};
+        uint8_t step_flag{};
 
         heat_control_t HeatControlParams[11]
         {
             {0},
             // 等级1: Q_max 100, 75开始减速，50降到w_min
-            {100, 75.0f, 20, 4.5, 9.2},
+            {100, 80.0f, 20, 4.5, 9.2},
             // 等级2: Q_max 110, 75开始
-            {110, 75.0f, 30, 4.8, 9.5},
+            {110, 80.0f, 30, 4.8, 9.5},
             // 等级3: Q_max 120, 80开始
             {120, 80.0f , 40, 5.6, 10.2},
             // 等级4: Q_max 130, 80开始
@@ -190,9 +182,9 @@ private:
         float ball_speed[3]{0.0f};
         float speed_increment{0};
         //目标转速
-        float target_bullet_speed = 23.2f;
-        //施加给摩擦轮的速度
-        float fric_mps = 20.5f;
+        float target_bullet_speed = 22.7f;
+
+        float fric_mps = 19.0f;
 
         float Q_max{};
         float Q_cd{};
