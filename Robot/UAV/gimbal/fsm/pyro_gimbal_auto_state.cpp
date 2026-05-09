@@ -25,7 +25,7 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.cmd->yaw_target_angle;
         float last_yaw_v = owner->gimbal_ctx.auto_ctx.kalman_yaw_v;
         owner->gimbal_ctx.auto_ctx.kalman_yaw_v = rx_data.yaw_omega * 0.9f + last_yaw_v * 0.1f;
-        owner->gimbal_ctx.auto_ctx.kalman_yaw_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_yaw_v,-8.0f,8.0f);
+        owner->gimbal_ctx.auto_ctx.kalman_yaw_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_yaw_v,-6.0f,6.0f);
     }
     //限位
     if (owner->gimbal_ctx.data._target_yaw_angle > owner->gimbal_ctx.data.yaw_real_max_limit_angle)
@@ -46,7 +46,7 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_pitch_angle = - owner->gimbal_ctx.cmd->pitch_target_angle;
         float last_pitch_v = owner->gimbal_ctx.auto_ctx.kalman_pitch_v;
         owner->gimbal_ctx.auto_ctx.kalman_pitch_v = rx_data.pitch_omega * 0.9f + last_pitch_v * 0.1f;
-        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_pitch_v,-6.0f,6.0f);
+        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_pitch_v,-5.0f,5.0f);
     }
 
     if (owner->gimbal_ctx.data._target_pitch_angle > pitch_max_value)

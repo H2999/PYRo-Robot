@@ -67,6 +67,7 @@ class uav_gimbal_t final : public module_base_t<uav_gimbal_t,uav_gimbal_cmd_t,ua
     struct gimbal_auto_ctx_t;
     struct TD_t;
     struct ui_ctx_t;
+    struct pitch_ldob_t;
 
 public:
     uav_gimbal_t(const uav_gimbal_t &)            = delete;
@@ -133,6 +134,7 @@ private:
         float pitch_real_min_limit_angle{};
 
         float gravity_compensate{};
+        float ldob_compensation{};
     };
 
     struct gimbal_auto_ctx_t
@@ -150,6 +152,15 @@ private:
         bool is_aiming_locked{false};
     };
 
+    struct pitch_ldob_t
+    {
+        float j_nom{0.008f};          // 标称转动惯量 (调参重点)
+        float l_coeff{0.04f};        // LDOB滤波系数 (0.01 ~ 0.1)
+        float accel_lpf{};      // 加速度低通滤波后的值
+        float speed_prev{};     // 上一次的速度
+        float d_est{};          // 最终扰动估计
+    };
+
     struct gimbal_ctx_t
     {
         uav_gimbal_cfg_t cfg;
@@ -159,6 +170,8 @@ private:
         ui_ctx_t ui_ctx{};
         uav_gimbal_cmd_t *cmd{};
         gimbal_auto_ctx_t auto_ctx{};
+
+        pitch_ldob_t pitch_ldob_ctx{};
     };
 
     gimbal_ctx_t gimbal_ctx;
