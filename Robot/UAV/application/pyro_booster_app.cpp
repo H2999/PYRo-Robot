@@ -224,24 +224,27 @@ void booster_vt03rcmd(uint32_t notify_val)
         }
         else
         {
-            if (rx_data.fire)
+            if (uav_booster_cmd_ptr->fric_enable)
             {
-                uav_booster_cmd_ptr->trigger_enable = true;
-                uav_booster_cmd_ptr->booster_auto_flag = true;
-            }
-            //自瞄没发开火位时才允许点按鼠标开火 防止误触
-            else
-            {
-                if (notify_val & VT03_TRIGGER_SINGLE || notify_val & MOUSE_SINGLE)
+                if (rx_data.fire)
                 {
                     uav_booster_cmd_ptr->trigger_enable = true;
-                    uav_booster_cmd_ptr->single_mode = true;
+                    uav_booster_cmd_ptr->booster_auto_flag = true;
                 }
-
-                if (notify_val & VT03_TRIGGER_CONTINUE || notify_val & MOUSE_CONTINUE)
+                //自瞄没发开火位时才允许点按鼠标开火 防止误触
+                else
                 {
-                    uav_booster_cmd_ptr->trigger_enable = true;
-                    uav_booster_cmd_ptr->continue_mode = true;
+                    if (notify_val & VT03_TRIGGER_SINGLE || notify_val & MOUSE_SINGLE)
+                    {
+                        uav_booster_cmd_ptr->trigger_enable = true;
+                        uav_booster_cmd_ptr->single_mode = true;
+                    }
+
+                    if (notify_val & VT03_TRIGGER_CONTINUE || notify_val & MOUSE_CONTINUE)
+                    {
+                        uav_booster_cmd_ptr->trigger_enable = true;
+                        uav_booster_cmd_ptr->continue_mode = true;
+                    }
                 }
             }
         }

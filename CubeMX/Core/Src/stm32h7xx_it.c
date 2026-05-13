@@ -74,6 +74,7 @@ extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart10;
 extern PCD_HandleTypeDef hpcd_USB_OTG_HS;
 extern TIM_HandleTypeDef htim16;
+extern DMA_HandleTypeDef hdma_tim1_up;
 
 /* USER CODE BEGIN EV */
 
@@ -498,6 +499,11 @@ void FDCAN3_IT1_IRQHandler(void)
   /* USER CODE BEGIN FDCAN3_IT1_IRQn 1 */
 
   /* USER CODE END FDCAN3_IT1_IRQn 1 */
+}
+
+void DMA2_Stream1_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_tim1_up);
 }
 
 /* USER CODE BEGIN 1 */

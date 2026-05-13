@@ -155,25 +155,25 @@ private:
         heat_control_t HeatControlParams[11]
         {
             {0},
-            // 等级1: Q_max 100, 75开始减速，50降到w_min
+            // 等级1: Q_max 100, 80开始减速，50降到w_min
             {100, 80.0f, 20, 4.5, 9.2},
-            // 等级2: Q_max 110, 75开始
+            // 等级2: Q_max 110, 80开始
             {110, 80.0f, 30, 4.8, 9.5},
             // 等级3: Q_max 120, 80开始
             {120, 80.0f , 40, 5.6, 10.2},
-            // 等级4: Q_max 130, 80开始
+            // 等级4: Q_max 130, 90开始
             {130, 90.0f, 50, 6.0, 11.6},
-            // 等级5: Q_max 140, 75开始 (爆发提升)
+            // 等级5: Q_max 140
             {140, 100.0f, 60, 6.5, 12.5},
-            // 等级6: Q_max 150, 75开始
-            {150, 100.0f, 7.0, 12.5},
-            // 等级7: Q_max 160, 70开始
+            // 等级6: Q_max 150, 100开始
+            {150, 100.0f, 70,7.0, 12.5},
+            // 等级7: Q_max 160, 110开始
             {160, 110.0f, 80, 7.5, 12.5},
-            // 等级8: Q_max 170, 70开始
+            // 等级8: Q_max 170, 110开始
             {170, 110.0f, 90, 8.5, 14.8},
-            // 等级9: Q_max 180, 65开始
+            // 等级9: Q_max 180, 120开始
             {180, 120.0f, 100, 8.5, 15.2},
-            // 等级10: Q_max 200, 60开始 (200到60都是满速度)
+            // 等级10: Q_max 200, 120开始
             {200, 120.0f, 120, 9.5, 15.8}
         };
         //用来弹速闭环
@@ -182,9 +182,9 @@ private:
         float ball_speed[3]{0.0f};
         float speed_increment{0};
         //目标转速
-        float target_bullet_speed = 22.7f;
+        float target_bullet_speed = 23.0f;
 
-        float fric_mps = 19.0f;
+        float fric_mps = 19.3f;
 
         float Q_max{};
         float Q_cd{};
@@ -243,11 +243,22 @@ private:
             void exit(uav_booster_t *owner) override;
         };
 
+        struct hand_reset_state_t final : public state_t<uav_booster_t>
+        {
+            void enter(uav_booster_t *owner) override;
+            void execute(uav_booster_t *owner) override;
+            void exit(uav_booster_t *owner) override;
+        };
+
         struct shoot_single_bullet_t final : public state_t<uav_booster_t>
         {
             void enter(uav_booster_t *owner) override;
             void execute(uav_booster_t *owner) override;
             void exit(uav_booster_t *owner) override;
+
+        private:
+            float start_time{};
+            float timeout_ms = 10.0f;
         };
 
         struct shoot_continue_bullet_t final : public state_t<uav_booster_t>
@@ -277,6 +288,7 @@ private:
 
     private:
         reset_state_t reset_state;
+        hand_reset_state_t hand_reset_state;
         state_middle_t middle_state;
         shoot_single_bullet_t single_state;
         shoot_continue_bullet_t continue_state;

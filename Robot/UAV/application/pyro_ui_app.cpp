@@ -33,7 +33,7 @@ static TaskHandle_t ui_task_handle                  = nullptr;
 
 static float fric1_mps                              = 0.0f;
 static float fric2_mps                              = 0.0f;
-static bool flush_flag                              = false;
+static bool flush_flag                              = true;
 static bool heat_bar_initialized = false;
 
 //静态ui绘制
@@ -330,23 +330,28 @@ extern "C"
                 vt03_control(notify_val);
             }
 
-            if (referee_ptr->is_online())
-            {
-                if (flush_flag)
-                {
-                    ui_ptr->clear_all();
-                    vTaskDelay(pdMS_TO_TICKS(200));
-                    ui_draw_static();
-                    vTaskDelay(pdMS_TO_TICKS(100));
+            // if (referee_ptr->is_online())
+            // {
+            //     if (flush_flag)
+            //     {
+            //         ui_ptr->clear_all();
+            //         vTaskDelay(pdMS_TO_TICKS(200));
+            //         ui_draw_static();
+            //         vTaskDelay(pdMS_TO_TICKS(100));
+            //
+            //         heat_bar_initialized = false;
+            //         // flush_flag = false;
+            //     }
+            //     else
+            //     {
+            //         ui_update_dynamic();
+            //     }
+            // }
 
-                    heat_bar_initialized = false;
-                    flush_flag = false;
-                }
-                else
-                {
-                    ui_update_dynamic();
-                }
-            }
+            ui_ptr->clear_all();
+            vTaskDelay(pdMS_TO_TICKS(200));
+            ui_draw_static();
+            vTaskDelay(pdMS_TO_TICKS(100));
 
             vTaskDelay(pdMS_TO_TICKS(50));
         }

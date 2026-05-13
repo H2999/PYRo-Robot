@@ -349,7 +349,6 @@ float uav_booster_t::heat_calculate()
     {
         booster_ctx.shoot_data.Q_now_no_referee -= booster_ctx.shoot_data.Q_cd * 0.001f;
     }
-
     // 限幅防超限
     if (booster_ctx.shoot_data.Q_now_no_referee < 0.0f)
     {

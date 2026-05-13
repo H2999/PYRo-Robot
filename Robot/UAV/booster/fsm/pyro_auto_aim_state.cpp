@@ -9,27 +9,24 @@ void uav_booster_t::fsm_active_t::shoot_auto_aim_t::enter(uav_booster_t *owner)
 
 void uav_booster_t::fsm_active_t::shoot_auto_aim_t::execute(uav_booster_t *owner)
 {
-
     if (owner->booster_ctx.cmd->booster_auto_flag)
     {
-        //有裁判系统的热量限制
-        // const int level = owner->booster_ctx.shoot_data.robot_level;
-        // const float Q_res = owner->booster_ctx.shoot_data.Q_res;
-
-        //无裁判系统的热量限制
         const float Q_now = owner->booster_ctx.shoot_data.Q_now_no_referee;
         const float Q_res = owner->booster_ctx.shoot_data.Q_max - Q_now;
 
-        // owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control(1, Q_res);
-        owner->booster_ctx.data_ctx.target_trigger_radps = 6.0f;
+        // const float Q_res = owner->booster_ctx.shoot_data.Q_res;
+
+        // owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control_no_referee(5, Q_res);
+        owner->booster_ctx.data_ctx.target_trigger_radps = 3.5f;
     }
     else
     {
+        // 停止逻辑
         owner->booster_ctx.data_ctx.target_trigger_radps = 0.0f;
         request_switch(&owner->active_state.middle_state);
     }
-
     owner->trigger_speed_control();
+    // 最终执行输出
     owner->send_trigger_command();
 }
 

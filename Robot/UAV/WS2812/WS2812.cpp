@@ -1,6 +1,7 @@
 #include "WS2812.h"
 
-
+// 添加 extern 声明
+extern TIM_HandleTypeDef htim1;
 
 namespace pyro
 {
@@ -18,10 +19,10 @@ namespace pyro
 
     void WS2812_drv_t::WS2812_Init()
     {
-        // 启动PWM输出
-        HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-        //高级定时器TIM1还要再使能一次
-        TIM1->BDTR |= TIM_BDTR_MOE;  // 或者用 HAL 函数
+        // 启动PWM输出 - 使用 TIM1
+        HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+        // 高级定时器TIM1需要使能主输出
+        TIM1->BDTR |= TIM_BDTR_MOE;
     }
 
     /**
@@ -94,25 +95,19 @@ namespace pyro
     {
         if (led_busy)
         {
-            return 1;  // 繁忙，稍后再试
+            return 1;
         }
 
-        // 填充PWM缓冲区
         fill_PWM_buffer();
 
-        // 启动DMA传输
         led_busy = 1;
-        HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_1,
+        HAL_TIM_PWM_Start_DMA(&htim1, TIM_CHANNEL_1,
                              reinterpret_cast<uint32_t*>(pwm_buffer),
                              LED_COUNT * BITS_PER_LED + RESET_PULSES);
 
         return 0;  // 已开始发送
     }
 
-    /**
-     * @brief 检查是否正在发送数据
-     * @return 1: 繁忙, 0: 空闲
-     */
     uint8_t WS2812_drv_t::WS2812_isbusy() const
     {
         return led_busy;
@@ -124,6 +119,7 @@ namespace pyro
     }
 }
 
+// DMA传输完成回调
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM1)

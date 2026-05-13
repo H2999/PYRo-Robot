@@ -1,5 +1,6 @@
 #ifndef WS2812_H_
 #define WS2812_H_
+#include "stm32h7xx.h"
 #include <cstring>
 #include <cstdint>
 #include "tim.h"
@@ -46,9 +47,9 @@ namespace pyro
 
         // 预计算的PWM占空比数值
         //0.35us表示低电平 所以0.35e-6 * 480M就是灯带灭时候的PWM_pulse
-        static inline uint8_t PWM_OUTPUT_0 = 168;
+        static inline uint8_t PWM_OUTPUT_0 = 110;
         //700ns 也就是0.7us表示高电平 所以0.7e-6 * 480M就是想让灯带亮时候的PWM_pulse
-        static inline uint16_t PWM_OUTPUT_1 = 336;
+        static inline uint16_t PWM_OUTPUT_1 = 234;
     };
 }
 

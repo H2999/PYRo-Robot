@@ -10,20 +10,8 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::enter(uav_gimbal_t *owner)
     //由于基于x2的存在 从遥控器模式切换到自瞄模式的瞬间一定要把所有前馈清零 目标角度等于当前角度 否则会抽动一下
 
     // 初始化目标角度为当前IMU角度，避免切换时抖动
-    owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.data._current_imu_yaw_angle;
-    owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data._current_imu_pitch_angle;
-
-    // 1. 同步角度：让影子系统瞬间到达真实位置
-    owner->gimbal_ctx.yaw_eso.z1 = owner->gimbal_ctx.data._current_imu_yaw_angle;
-    owner->gimbal_ctx.yaw_eso.z1 = owner->gimbal_ctx.data._current_imu_pitch_angle;
-
-    // 2. 同步速度：防止 ESO 认为系统有巨大的初速度
-    owner->gimbal_ctx.yaw_eso.z2 = owner->gimbal_ctx.data._current_imu_yaw_speed;
-    owner->gimbal_ctx.yaw_eso.z2 = owner->gimbal_ctx.data._current_imu_pitch_speed;
-
-    // 3. 扰动归零：不要带入上一波控制残留的扰动估计
-    owner->gimbal_ctx.yaw_eso.z3 = 0.0f;
-    owner->gimbal_ctx.pitch_eso.z3 = 0.0f;
+    // owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.data._current_imu_yaw_angle;
+    // owner->gimbal_ctx.data._target_pitch_angle = owner->gimbal_ctx.data._current_imu_pitch_angle;
 
     // 必须同步初始化 TD，否则 TD 会基于旧的 x1 算出错误的速度前馈
     owner->gimbal_ctx.yaw_td.x1 = owner->gimbal_ctx.data._current_imu_yaw_angle;
@@ -34,6 +22,12 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::enter(uav_gimbal_t *owner)
     // 清除可能存在的卡尔曼速度残余
     owner->gimbal_ctx.auto_ctx.kalman_yaw_v = 0.0f;
     owner->gimbal_ctx.auto_ctx.kalman_pitch_v = 0.0f;
+
+    //清除内部的积分项
+    // owner->gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid->clear();
+    // owner->gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid->clear();
+    // owner->gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid->clear();
+    // owner->gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid->clear();
 }
 
 void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
@@ -47,9 +41,9 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
     {
         owner->gimbal_ctx.ui_ctx.is_aiming_locked = true;
         owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.cmd->yaw_target_angle;
-        float last_yaw_v = owner->gimbal_ctx.auto_ctx.kalman_yaw_v;
 
-        owner->gimbal_ctx.auto_ctx.kalman_yaw_v = rx_data.yaw_omega * 0.9f + last_yaw_v * 0.1f;
+        const float last_yaw_v = owner->gimbal_ctx.auto_ctx.kalman_yaw_v;
+        owner->gimbal_ctx.auto_ctx.kalman_yaw_v = rx_data.yaw_omega * 0.8f + last_yaw_v * 0.2f;
         owner->gimbal_ctx.auto_ctx.kalman_yaw_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_yaw_v,-5.0f,5.0f);
     }
     //限位
@@ -68,11 +62,12 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
     }
     else
     {
+        //坐标系不同 所以加个负号
         owner->gimbal_ctx.data._target_pitch_angle = - owner->gimbal_ctx.cmd->pitch_target_angle;
-        float last_pitch_v = owner->gimbal_ctx.auto_ctx.kalman_pitch_v;
 
-        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = rx_data.pitch_omega * 0.9f + last_pitch_v * 0.1f;
-        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_pitch_v,-5.0f,5.0f);
+        const float last_pitch_v = owner->gimbal_ctx.auto_ctx.kalman_pitch_v;
+        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = rx_data.pitch_omega * 0.6f + last_pitch_v * 0.4f;
+        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_pitch_v,-4.5f,4.5f);
     }
 
     if (owner->gimbal_ctx.data._target_pitch_angle > pitch_max_value)
