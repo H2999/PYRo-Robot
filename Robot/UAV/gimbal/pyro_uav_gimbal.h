@@ -6,6 +6,8 @@
 #include "pyro_ins.h"
 #include "pyro_module_base.h"
 #include "pyro_motor_base.h"
+#include "pyro_algo_leso.h"
+#include <cmath>
 #include "gimbal_config.h"
 
 namespace pyro
@@ -50,6 +52,12 @@ struct uav_gimbal_cfg_t
         pid_t *auto_pitch_position_pid{nullptr};
         pid_t *auto_yaw_speed_pid{nullptr};
         pid_t *auto_pitch_speed_pid{nullptr};
+
+        pid_t *yaw_position_pid_leso{nullptr};
+        pid_t *yaw_speed_pid_leso{nullptr};
+
+        pid_t *pitch_position_pid_leso{nullptr};
+        pid_t *pitch_speed_pid_leso{nullptr};
     };
 
     motor_ctx_t motor_ctx;
@@ -67,9 +75,6 @@ class uav_gimbal_t final : public module_base_t<uav_gimbal_t,uav_gimbal_cmd_t,ua
     struct gimbal_auto_ctx_t;
     struct TD_t;
     struct ui_ctx_t;
-    struct pitch_ldob_t;
-    // 添加 ESO 结构体
-    struct eso_t;
 
 public:
     uav_gimbal_t(const uav_gimbal_t &)            = delete;
@@ -92,32 +97,24 @@ private:
     static void send_motor_command(const gimbal_ctx_t *ctx);
     static void normalize_angle(float& angle);
     static void td_calculate(TD_t *td, float target);
+    static void auto_aim_gimbal_control_leso(gimbal_ctx_t *ctx);
 
-    static void eso_update(eso_t *eso, float y, float u);
-
+    //TD跟踪器
     struct TD_t{
         float r;      // 快速因子
         float h;      // 滤波因子
         float dt;     // 周期
         float x1;     // 平滑位置输出
         float x2;     // 平滑速度输出
+        float fh;     // 平滑加速度输出
     };
-
-    // --- 新增 ESO 实例 ---
-    // struct eso_t {
-    //     float r;          // 这里的 r 对应 ADRC 中的带宽 omega_o
-    //     float b0;         // 控制增益
-    //     float dt;         // 采样周期
-    //     float z1;         // 估计角度
-    //     float z2;         // 估计角速度
-    //     float z3;         // 估计总扰动 (ADRC 核心)
-    // };
 
     struct data_ctx_t
     {
         float pitch_real_min_limit_angle_filtered;
         float pitch_real_max_limit_angle_filtered;
         //目标角度
+        float _last_target_yaw_angle{};
         float _target_yaw_angle{};
         float _target_pitch_angle{};
         //目标速度
@@ -152,6 +149,9 @@ private:
 
         float gravity_compensate_k = 0.8f;
         float gravity_compensate{};
+
+        float current_yaw_raw_rad{};
+        float current_pitch_raw_rad{};
     };
 
     struct gimbal_auto_ctx_t
@@ -178,6 +178,8 @@ private:
         ui_ctx_t ui_ctx{};
         uav_gimbal_cmd_t *cmd{};
         gimbal_auto_ctx_t auto_ctx{};
+        leso_t<2>* yaw_leso;
+        leso_t<2>* pitch_leso;
     };
 
     gimbal_ctx_t gimbal_ctx;

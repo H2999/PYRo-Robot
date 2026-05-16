@@ -31,6 +31,7 @@ struct tx_data_t
 struct rx_data_t
 {
     uint8_t fire;
+    uint8_t is_single_shoot;
     float shoot_yaw;
     float shoot_pitch;
     float shoot_dist;

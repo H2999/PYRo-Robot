@@ -3,7 +3,11 @@ using namespace pyro;
 
 void uav_booster_t::fsm_active_t::state_middle_t::enter(uav_booster_t *owner)
 {
-    owner->booster_ctx.data_ctx.target_trigger_rad = owner->booster_ctx.data_ctx.current_trigger_rad;
+    if (&owner->active_state.continue_state == owner->active_state._last_state)
+    {
+        owner->booster_ctx.data_ctx.target_trigger_rad = owner->booster_ctx.data_ctx.current_trigger_rad;
+    }
+
 }
 
 void uav_booster_t::fsm_active_t::state_middle_t::execute(uav_booster_t *owner)
@@ -11,7 +15,8 @@ void uav_booster_t::fsm_active_t::state_middle_t::execute(uav_booster_t *owner)
     if (abs(owner->booster_ctx.data_ctx.current_fric_mps[0] -
             owner->booster_ctx.data_ctx.target_fric_mps[0]) < 0.7f &&
         abs(owner->booster_ctx.data_ctx.current_fric_mps[1] -
-            owner->booster_ctx.data_ctx.target_fric_mps[1]) < 0.7f)
+            owner->booster_ctx.data_ctx.target_fric_mps[1]) < 0.7f &&
+            owner->booster_ctx.data_ctx.target_fric_mps[0] != 0.0f)
     {
         if (owner->booster_ctx.cmd->trigger_enable)
         {
@@ -41,7 +46,6 @@ void uav_booster_t::fsm_active_t::state_middle_t::execute(uav_booster_t *owner)
 
     owner->trigger_position_control();
     owner->send_trigger_command();
-
 }
 
 void uav_booster_t::fsm_active_t::state_middle_t::exit(uav_booster_t *owner)

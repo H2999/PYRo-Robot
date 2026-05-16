@@ -31,41 +31,41 @@ void uav_booster_t::fsm_active_t::on_execute(uav_booster_t *owner)
     owner->fric_control();
     owner->send_fric_command();
 
-    constexpr float STALL_TIME_THRESHOLD   = 500.0f; // 堵转时间阈值
-    constexpr float STALL_TORQUE_THRESHOLD = 5.0f;   // 堵转扭矩阈值
-    constexpr float STALL_SPEED_THRESHOLD  = 0.6f;   // 堵转速度阈值
+    constexpr float STALL_TIME_THRESHOLD   = 600.0f; // 堵转时间阈值
+    constexpr float STALL_TORQUE_THRESHOLD = 6.0f;   // 堵转扭矩阈值
+    constexpr float STALL_SPEED_THRESHOLD  = 0.4f;   // 堵转速度阈值
 
-    static float stall_start_time          = 0.0f;
-    if (_active_state != &reset_state && _active_state != &middle_state)
-    {
-        if (abs(owner->booster_ctx.data_ctx.current_trigger_radps) < STALL_SPEED_THRESHOLD &&
-        abs(owner->booster_ctx.data_ctx.current_trigger_torque) > STALL_TORQUE_THRESHOLD)
-        {
-            if (stall_start_time == 0.0f)
-            {
-                stall_start_time = dwt_drv_t::get_timeline_ms();
-            }
-            else
-            {
-                const float elapsed_time =
-                    dwt_drv_t::get_timeline_ms() - stall_start_time;
-                if (elapsed_time >= STALL_TIME_THRESHOLD)
-                {
-                    // 进入堵转状态
-                    change_state(&stall_state);
-                    if (_active_state == &stall_state)
-                    {
-                        reset();
-                    }
-                    stall_start_time = 0.0f; // 重置堵转计时
-                }
-            }
-        }
-        else
-        {
-            stall_start_time = 0.0f;
-        }
-    }
+     static float stall_start_time          = 0.0f;
+     if (_active_state != &reset_state && _active_state != &middle_state)
+     {
+         if (abs(owner->booster_ctx.data_ctx.current_trigger_radps) < STALL_SPEED_THRESHOLD &&
+         abs(owner->booster_ctx.data_ctx.current_trigger_torque) > STALL_TORQUE_THRESHOLD)
+         {
+             if (stall_start_time == 0.0f)
+             {
+                 stall_start_time = dwt_drv_t::get_timeline_ms();
+             }
+             else
+             {
+                 const float elapsed_time =
+                     dwt_drv_t::get_timeline_ms() - stall_start_time;
+                 if (elapsed_time >= STALL_TIME_THRESHOLD)
+                 {
+                     // 进入堵转状态
+                     change_state(&stall_state);
+                     if (_active_state == &stall_state)
+                     {
+                         reset();
+                     }
+                     stall_start_time = 0.0f; // 重置堵转计时
+                 }
+             }
+         }
+         else
+         {
+             stall_start_time = 0.0f;
+         }
+     }
 }
 
 void uav_booster_t::fsm_active_t::on_exit(uav_booster_t *owner)

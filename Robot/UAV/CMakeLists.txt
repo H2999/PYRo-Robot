@@ -4,7 +4,7 @@ add_library(UAV OBJECT
         booster/booster_config.h
         gimbal/gimbal_config.h
         application/pyro_ui_app.cpp
-        booster/fsm/pyro_hand_reset_state.cpp
+        usb_to_f1/usb_to_light.h
 )
 target_sources(UAV
         PRIVATE
@@ -33,6 +33,7 @@ target_sources(UAV
         gimbal/feedforward_kf/forecast_v.cpp
 
         WS2812/WS2812.cpp
+        usb_to_f1/usb_to_light.cpp
 
 )
 

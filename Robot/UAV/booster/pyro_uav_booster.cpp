@@ -34,13 +34,11 @@ status_t uav_booster_t::_init()
 
     //拨弹盘pid初始化
     booster_ctx.cfg.pid_cfg.trigger_position_pid =
-        new pid_t(8.8f, 0.00048f, 0.00023f, 1.0f, 15.0f, 60, 30, 4);
+        new pid_t(15.0f, 0.0f, 0.005f, 0.0f, 16.0f,100,80,4);
     booster_ctx.cfg.pid_cfg.trigger_speed_pid =
-        new pid_t(5.8f, 0.00055f, 0.00033f, 1.0f, 15.0f, 60, 30, 4);
+        new pid_t(2.4f, 0.0f, 0.0005f, 0.0f, 10.0f,80,50,4);
 
-    booster_ctx.data_ctx.torque = booster_ctx.cfg.motor_cfg.trigger_wheel->get_current_torque();
-
-    booster_ctx.cfg.pid_cfg.shoot_closed_pid = new pid_t(0.0192f, 0.0f, 0.00004f, 0.0f, 0.5f);
+    booster_ctx.cfg.pid_cfg.shoot_closed_pid = new pid_t(0.0182f, 0.0f, 0.00004f, 0.0f, 0.5f);
     return PYRO_OK;
 }
 
@@ -90,6 +88,7 @@ void uav_booster_t::_update_feedback()
     booster_ctx.shoot_data.Q_cd = booster_ctx.referee_ctx.referee_data.robot_status.shooter_barrel_cooling_value;
     booster_ctx.shoot_data.Q_now_referee = booster_ctx.referee_ctx.referee_data.power_heat.shooter_17mm_barrel_heat;
     booster_ctx.shoot_data.Q_res = booster_ctx.shoot_data.Q_max - booster_ctx.shoot_data.Q_now_referee;
+    booster_ctx.shoot_data.launching_frequency = booster_ctx.referee_ctx.referee_data.shoot.launching_frequency;
 
     //更新反馈
     booster_ctx.cfg.motor_cfg.fric_wheel[0]->update_feedback();
@@ -137,6 +136,8 @@ void uav_booster_t::_update_feedback()
     booster_ctx.data_ctx.last_motor_rad  = now_motor_rad;
 
     booster_ctx.data_ctx.current_trigger_rad = normalize_angle(booster_ctx.data_ctx.total_trigger_rad);
+
+    _launch_delay_calculate();
 }
 
 void uav_booster_t::speed_control()
@@ -189,6 +190,49 @@ void uav_booster_t::speed_control()
         if (booster_ctx.shoot_data.fric_mps < MIN_SPEED){booster_ctx.shoot_data.fric_mps = MIN_SPEED;}
 
         booster_ctx.shoot_data.last_bullet_speed_mps = booster_ctx.shoot_data.now_bullet_speed_mps;
+    }
+}
+
+void uav_booster_t::_launch_delay_calculate()
+{
+    // 如果没有在等待击发，直接返回
+    if (!booster_ctx.shoot_delay_ctx.waiting_for_launch) return;
+
+    float delta_rad = booster_ctx.data_ctx.total_trigger_rad - booster_ctx.data_ctx.last_trigger_rad;
+    if (delta_rad > 0.0f)
+    {
+        booster_ctx.data_ctx.accumulated_rad_shoot_delay += delta_rad;
+    }
+    constexpr float RAD_PER_SHOT = PI / 4.0f;
+
+    // 检测是否成功击发（通过拨弹盘扭矩）
+    bool launch_detected = false;
+
+    // 检测扭矩从高变低（拨完弹的瞬间）
+    static float last_torque = 0;
+    float torque = booster_ctx.data_ctx.current_fric_torque;
+
+    //下降沿触发
+    if (last_torque > 9.0f && torque < 9.0f &&
+        booster_ctx.data_ctx.accumulated_rad_shoot_delay >= RAD_PER_SHOT * 0.9f)
+    {
+        launch_detected = true;
+        booster_ctx.data_ctx.accumulated_rad_shoot_delay = 0.0f;
+    }
+    last_torque = torque;
+
+    if (launch_detected)
+    {
+        float now = dwt_drv_t::get_timeline_ms();
+
+        // 计算完整系统延迟（自瞄→击发）
+        if (booster_ctx.shoot_delay_ctx.aim_timestamp > 0)
+        {
+            booster_ctx.shoot_delay_ctx.total_system_delay =
+                now - booster_ctx.shoot_delay_ctx.aim_timestamp;
+        }
+
+        booster_ctx.shoot_delay_ctx.waiting_for_launch = false;
     }
 }
 
@@ -264,7 +308,7 @@ float uav_booster_t::heat_control_referee(const uint8_t level, const float Q_res
     const heat_control_t *p = &booster_ctx.shoot_data.HeatControlParams[level];
 
     constexpr float Q_stop = 20.0f;
-    constexpr float Q_low  = 45.0f;
+    constexpr float Q_low  = 40.0f;
 
     if (Q_res >= p->Q_start_sloop)
     {

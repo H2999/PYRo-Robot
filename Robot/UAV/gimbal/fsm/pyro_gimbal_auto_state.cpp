@@ -66,7 +66,7 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_pitch_angle = - owner->gimbal_ctx.cmd->pitch_target_angle;
 
         const float last_pitch_v = owner->gimbal_ctx.auto_ctx.kalman_pitch_v;
-        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = rx_data.pitch_omega * 0.6f + last_pitch_v * 0.4f;
+        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = rx_data.pitch_omega * 0.8f + last_pitch_v * 0.2f;
         owner->gimbal_ctx.auto_ctx.kalman_pitch_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_pitch_v,-4.5f,4.5f);
     }
 
@@ -79,7 +79,8 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_pitch_angle = pitch_min_value;
     }
 
-    auto_aim_gimbal_control(&owner->gimbal_ctx);
+    // auto_aim_gimbal_control(&owner->gimbal_ctx);
+    auto_aim_gimbal_control_leso(&owner->gimbal_ctx);
     send_motor_command(&owner->gimbal_ctx);
 }
 

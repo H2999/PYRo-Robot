@@ -15,8 +15,8 @@ void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::execute(uav_booster_t
 
         // const float Q_res = owner->booster_ctx.shoot_data.Q_res;
 
-        owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control_no_referee(5, Q_res);
-        // owner->booster_ctx.data_ctx.target_trigger_radps = 5.0f;
+        owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control_no_referee(1, Q_res);
+        // owner->booster_ctx.data_ctx.target_trigger_radps = 10.0f;
     }
     else
     {

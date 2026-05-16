@@ -51,14 +51,14 @@ void ui_draw_static()
     ui_ptr->draw_rect("R01", ui_operate::ADD, 1, ui_color::GREEN, 3,
                       815, 455, 1105, 620)
     //热量进度条
-    .draw_rect("HEAT_BG", ui_operate::ADD, 1, ui_color::CYAN, 1,
-              715, 140, 1015, 230)
     .draw_rect("HEAT_BAR", ui_operate::ADD, 1, ui_color::GREEN, 3,
                   715, 140, 715, 230)
+    //摩擦轮速度显示
     .draw_line("FRIC1_SPEED", ui_operate::ADD, 1, ui_color::YELLOW, 4,
                             1520, 580, 1820,580)
     .draw_line("FRIC2_SPEED", ui_operate::ADD, 1, ui_color::YELLOW, 4,
                             1520, 410, 1820,410)
+    //显示是否开启摩擦轮
     .draw_circle("FRIC1_MODE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
                         1580, 750, 30)
     .draw_circle("FRIC2_MODE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
@@ -66,16 +66,17 @@ void ui_draw_static()
 
     ui_ptr->flush(); // 拼包发送
     // 1. 绘制静态文本标签 (注意名字不能重复)
+    //两轴角度
     ui_ptr->draw_string("ST1", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
                         20, 4, 1540, 620, " YAW :");
     ui_ptr->draw_string("ST2", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
                         20, 4, 1540, 450, "PITCH:");
-
+    //摩擦轮速度数据
     ui_ptr->draw_string("ST3", pyro::ui_operate::ADD, 3, pyro::ui_color::ALLY,
                         20, 2, 110, 800, "FRIC1:");
     ui_ptr->draw_string("ST4", pyro::ui_operate::ADD, 3, pyro::ui_color::ALLY,
                         20, 2, 110, 750, "FRIC2:");
-
+    //热量数据
     ui_ptr->draw_string("ST5", pyro::ui_operate::ADD, 3, pyro::ui_color::GREEN,
                        20, 4, 800, 115, "HEAT:");
     ui_ptr->draw_string("ST6", pyro::ui_operate::ADD, 3, pyro::ui_color::GREEN,
@@ -142,61 +143,31 @@ void update_aim_ui()
                             target_color, 4, 960, 540, static_cast<uint16_t>(ui_radius));
     }
 }
+
 //绘制热量进度条
 void update_heat_progress_bar(float current_heat, float max_heat)
 {
-    // 计算热量百分比
-    float heat_percentage = 0.0f;
-    if (max_heat > 0.0f)
-    {
-        heat_percentage = current_heat / max_heat;
-    }
+    // 1. 计算比例并限幅 (0.0 ~ 1.0)
+    float ratio = (max_heat > 0.0f) ? (current_heat / max_heat) : 0.0f;
+    ratio = std::clamp(ratio, 0.0f, 1.0f);
 
-    heat_percentage = std::clamp(heat_percentage, 0.0f, 1.0f);
-
+    // 2. 几何参数计算 (起点、终点)
     const uint16_t start_x = 715;
-    const uint16_t start_y = 140;
-    const uint16_t end_x = 1015;
-    const uint16_t end_y = 230;
-    const uint16_t total_width = end_x - start_x;  // 300px
+    const uint16_t current_end_x = start_x + static_cast<uint16_t>(300 * ratio);
 
-    // 计算当前进度条终点
-    uint16_t current_end_x = start_x + static_cast<uint16_t>(total_width * heat_percentage);
+    // 3. 颜色切换逻辑 (根据热量状态)
+    ui_color bar_color = (ratio > 0.9f) ? ui_color::ALLY :
+                         (ratio > 0.6f) ? ui_color::ORANGE : ui_color::GREEN;
 
-    ui_color bar_color = ui_color::GREEN;
-    if (heat_percentage > 0.8f) bar_color = ui_color::ORANGE;
-    else if (heat_percentage > 0.5f) bar_color = ui_color::YELLOW;
-
-    // 删除旧的进度条（如果存在）
-    if (!heat_bar_initialized)
-    {
-        ui_ptr->draw_rect("HEAT_BAR", ui_operate::ADD, 1, bar_color, 3,
-                         start_x, start_y, start_x, end_y);  // 初始宽度0
-        heat_bar_initialized = true;
-    }
-
-    // 之后每次用 MODIFY 更新
+    // 4. 一行 MODIFY 指令直接更新 (前提是 draw_static 里已经 ADD 过同名图形)
     ui_ptr->draw_rect("HEAT_BAR", ui_operate::MODIFY, 1, bar_color, 3,
-                     start_x, start_y, current_end_x, end_y);
+                      start_x, 140, current_end_x, 230);
 
-    // 添加新的进度条（只有当进度>0时才绘制）
-    if (current_end_x > start_x)
-    {
-        ui_ptr->draw_rect("HEAT_BAR", ui_operate::ADD, 1, bar_color, 3,
-                         start_x, start_y, current_end_x, end_y);
-        heat_bar_initialized = true;
-    }
-    else
-    {
-        heat_bar_initialized = false;
-    }
-
-    // 可选：显示热量数值和百分比
+    // 5. 数值部分同步更新
     ui_ptr->draw_float("HEAT_VAL", ui_operate::MODIFY, 4, ui_color::WHITE,
-                       20, 2, 860, 115, current_heat)
-          .draw_float("HEAT_PCT", ui_operate::MODIFY, 4, ui_color::WHITE,
-                       20, 2, 980, 115, heat_percentage * 100.0f);
+                       20, 2, 860, 115, current_heat);
 }
+
 //绘制发射机构ui 是否开启摩擦轮 以及当前弹速
 void update_booster_ui()
 {
@@ -235,17 +206,24 @@ void update_booster_ui()
               20, 2, 230, 750, 0.0f);
     }
 }
+
 //绘制两轴角度
 void update_gimbal_ui()
 {
-    float yaw_angle = gimbal_ptr->get_data()->data._current_imu_yaw_angle;
-    float pitch_angle = gimbal_ptr->get_data()->data._current_imu_pitch_angle;
+    static float last_yaw = 0.0f, last_pitch = 0.0f;
+    float yaw = gimbal_ptr->get_data()->data._current_imu_yaw_angle;
+    float pitch = gimbal_ptr->get_data()->data._current_imu_pitch_angle;
 
-    ui_ptr->draw_float("DF3", pyro::ui_operate::MODIFY, 4,
-                        pyro::ui_color::ALLY, 20, 4, 1600, 620, yaw_angle)
-    .draw_float("DF4", pyro::ui_operate::MODIFY, 4,
-                        pyro::ui_color::ALLY, 20, 4, 1600, 450, pitch_angle);
+    // 只有角度变化超过 0.1 度才发包
+    if (std::abs(yaw - last_yaw) > 0.1f || std::abs(pitch - last_pitch) > 0.1f)
+    {
+        ui_ptr->draw_float("DF3", ui_operate::MODIFY, 4, ui_color::ALLY, 20, 4, 1600, 620, yaw)
+              .draw_float("DF4", ui_operate::MODIFY, 4, ui_color::ALLY, 20, 4, 1600, 450, pitch);
+        last_yaw = yaw;
+        last_pitch = pitch;
+    }
 }
+
 //调用update_aim_ui、update_gimbal_ui等动态刷新ui
 void ui_update_dynamic()
 {
@@ -330,29 +308,23 @@ extern "C"
                 vt03_control(notify_val);
             }
 
-            // if (referee_ptr->is_online())
-            // {
-            //     if (flush_flag)
-            //     {
-            //         ui_ptr->clear_all();
-            //         vTaskDelay(pdMS_TO_TICKS(200));
-            //         ui_draw_static();
-            //         vTaskDelay(pdMS_TO_TICKS(100));
-            //
-            //         heat_bar_initialized = false;
-            //         // flush_flag = false;
-            //     }
-            //     else
-            //     {
-            //         ui_update_dynamic();
-            //     }
-            // }
+            if (referee_ptr->is_online())
+            {
+                if (flush_flag)
+                {
+                    ui_ptr->clear_all();
+                    vTaskDelay(pdMS_TO_TICKS(200));
+                    ui_draw_static();
+                    vTaskDelay(pdMS_TO_TICKS(100));
 
-            ui_ptr->clear_all();
-            vTaskDelay(pdMS_TO_TICKS(200));
-            ui_draw_static();
-            vTaskDelay(pdMS_TO_TICKS(100));
-
+                    heat_bar_initialized = false;
+                    flush_flag = false;
+                }
+                else
+                {
+                    ui_update_dynamic();
+                }
+            }
             vTaskDelay(pdMS_TO_TICKS(50));
         }
     }
