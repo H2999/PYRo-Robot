@@ -209,12 +209,11 @@ void booster_vt03rcmd(uint32_t notify_val)
 
     if (sw_pos_t::DOWN == vrc.switches.gear.current_pos || notify_val & MOUSE_ENTER_AUTO)
     {
-        if (notify_val & VT03_FRIC_TOGGLE  || notify_val & KEY_FRIC_TOGGLE)
+        if (notify_val & VT03_FRIC_TOGGLE || notify_val & KEY_FRIC_TOGGLE)
         {
             uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
         }
 
-        //如果发生意外 可以点鼠标左键停止开火
         if (uav_booster_cmd_ptr->fric_enable)
         {
             if (rx_data.fire)
@@ -222,29 +221,24 @@ void booster_vt03rcmd(uint32_t notify_val)
                 uav_booster_cmd_ptr->trigger_enable = true;
                 uav_booster_cmd_ptr->booster_auto_flag = true;
             }
-            else
-            {
-                uav_booster_cmd_ptr->booster_auto_flag = false;
-            }
-            //自瞄没发开火位时才允许点按鼠标开火 防止误触
-            if (uav_booster_cmd_ptr->trigger_enable)
-            {
-                if (notify_val & VT03_TRIGGER_SINGLE || notify_val & MOUSE_SINGLE)
-                {
-                    // uav_booster_cmd_ptr->trigger_enable = true;
-                    uav_booster_cmd_ptr->single_mode = true;
-                    uav_booster_cmd_ptr->continue_mode = false;
-                }
 
-                if (notify_val & VT03_TRIGGER_CONTINUE || notify_val & MOUSE_CONTINUE)
-                {
-                    // uav_booster_cmd_ptr->trigger_enable = true;
-                    uav_booster_cmd_ptr->continue_mode = true;
-                }
+            if (notify_val & VT03_TRIGGER_SINGLE || notify_val & MOUSE_SINGLE)
+            {
+                uav_booster_cmd_ptr->trigger_enable = true;
+                uav_booster_cmd_ptr->single_mode = true;
+                uav_booster_cmd_ptr->continue_mode = false;
+            }
+
+            if (notify_val & VT03_TRIGGER_CONTINUE || notify_val & MOUSE_CONTINUE)
+            {
+                uav_booster_cmd_ptr->trigger_enable = true;
+                uav_booster_cmd_ptr->continue_mode = true;
+                uav_booster_cmd_ptr->single_mode = false;
             }
         }
         else
         {
+            // 自瞄总开关关闭：禁止一切开火
             uav_booster_cmd_ptr->trigger_enable = false;
             uav_booster_cmd_ptr->single_mode = false;
             uav_booster_cmd_ptr->continue_mode = false;

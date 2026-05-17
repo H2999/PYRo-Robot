@@ -4,6 +4,8 @@ add_library(UAV OBJECT
         booster/booster_config.h
         gimbal/gimbal_config.h
         application/pyro_ui_app.cpp
+        led/led.cpp
+        led/led.h
 )
 target_sources(UAV
         PRIVATE
@@ -30,8 +32,7 @@ target_sources(UAV
         gimbal/fsm/pyro_gimbal_rc_state.cpp
         gimbal/fsm/pyro_passive_state.cpp
         gimbal/feedforward_kf/forecast_v.cpp
-
-        WS2812/WS2812.cpp
+        led/led.cpp
 )
 
 target_include_directories(UAV
@@ -41,7 +42,7 @@ target_include_directories(UAV
         ${CMAKE_CURRENT_SOURCE_DIR}/booster
         ${CMAKE_CURRENT_SOURCE_DIR}/gimbal
         ${CMAKE_CURRENT_SOURCE_DIR}/gimbal/feedforward_kf
-        ${CMAKE_CURRENT_SOURCE_DIR}/WS2812
+        ${CMAKE_CURRENT_SOURCE_DIR}/led
 )
 
 target_link_libraries(UAV PUBLIC
@@ -55,5 +56,5 @@ target_compile_definitions(PYRo PUBLIC
         REFEREE_UART=PYRO_UART1
         AUTOAIM_UART=PYRO_UART10
         VT03_UART=PYRO_UART7
-        JCOM_DEBUG_PORT=PYRO_UART10
+#        JCOM_DEBUG_PORT=PYRO_UART10
 )

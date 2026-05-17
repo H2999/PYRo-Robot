@@ -23,11 +23,8 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::enter(uav_gimbal_t *owner)
     owner->gimbal_ctx.auto_ctx.kalman_yaw_v = 0.0f;
     owner->gimbal_ctx.auto_ctx.kalman_pitch_v = 0.0f;
 
-    //清除内部的积分项
-    // owner->gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid->clear();
-    // owner->gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid->clear();
-    // owner->gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid->clear();
-    // owner->gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid->clear();
+    // owner->gimbal_ctx.data._target_pitch_angle  -= 0.4f;
+    // owner->gimbal_ctx.data._target_yaw_angle  -= 0.2f;
 }
 
 void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
@@ -77,9 +74,10 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_pitch_angle = pitch_min_value;
     }
 
-    // auto_aim_gimbal_control(&owner->gimbal_ctx);
-    auto_aim_gimbal_control_leso(&owner->gimbal_ctx);
+    auto_aim_gimbal_control(&owner->gimbal_ctx);
+    // auto_aim_gimbal_control_leso(&owner->gimbal_ctx);
     send_motor_command(&owner->gimbal_ctx);
+
 }
 
 void uav_gimbal_t::fsm_active_t::state_auto_t::exit(uav_gimbal_t *owner)

@@ -6,13 +6,12 @@
 #include "pyro_uav_booster.h"
 #include "pyro_uav_gimbal.h"
 #include "pyro_vt03_rc_drv.h"
-#include "../WS2812/WS2812.h"
+#include "led.h"
 
 using namespace pyro;
 // ReSharper disable CppExpressionWithoutSideEffects
 static referee_drv_t *referee_ptr                   = nullptr;
 static ui_drv_t *ui_ptr                             = nullptr;
-static WS2812_drv_t* light_ptr                      = nullptr;
 extern uav_booster_t *uav_booster_ptr;
 extern uav_gimbal_t *gimbal_ptr;
 
@@ -42,27 +41,18 @@ void ui_draw_static()
     // 1. 绘制矩形 (RECT)
     // 参数：名字, 操作, 图层, 颜色, 线宽, 起点X, 起点Y, 终点X, 终点Y
 
-    // ui_ptr
-    //    ->draw_line("L01", pyro::ui_operate::ADD, 1, pyro::ui_color::GREEN, 4,
-    //                860, 615, 1060, 615)
-    //    .draw_line("L02", ui_operate::ADD, 1, pyro::ui_color::ORANGE, 4, 860,
-    //               585, 1060, 585);
-
-    ui_ptr->draw_rect("R01", ui_operate::ADD, 1, ui_color::GREEN, 3,
-                      815, 455, 1105, 620)
-    //热量进度条
-    .draw_rect("HEAT_BAR", ui_operate::ADD, 1, ui_color::GREEN, 3,
-                  715, 140, 715, 230)
-    //摩擦轮速度显示
-    .draw_line("FRIC1_SPEED", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                            1520, 580, 1820,580)
-    .draw_line("FRIC2_SPEED", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                            1520, 410, 1820,410)
-    //显示是否开启摩擦轮
-    .draw_circle("FRIC1_MODE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                        1580, 750, 30)
-    .draw_circle("FRIC2_MODE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                        1700, 750, 30);
+    ui_ptr->
+     draw_rect("R01", ui_operate::ADD, 1, ui_color::GREEN, 3,
+                       815, 455, 1105, 620)
+     //摩擦轮速度显示
+     .draw_line("YAW_ANGLE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
+                             1520, 580, 1820,580)
+     .draw_line("PITCH_ANGLE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
+                             1520, 210, 1820,210)
+     // .draw_circle("FRIC1", ui_operate::ADD, 1, ui_color::YELLOW, 4,
+     //                   1580, 750, 30)
+     .draw_circle("FRIC2", ui_operate::ADD, 1, ui_color::ALLY, 4,
+                       1700, 750, 30);
 
     ui_ptr->flush(); // 拼包发送
     // 1. 绘制静态文本标签 (注意名字不能重复)
@@ -249,33 +239,6 @@ void vt03_control(uint32_t notify_val)
         flush_flag = true;
     }
 
-    if (notify_val & KEY_W_ON)
-    {
-        light_ptr->set_all(57, 255, 0); // 荧光绿
-    }
-    if (notify_val & KEY_S_ON)
-    {
-        light_ptr->set_all(255, 255, 0); //荧光黄
-    }
-    if (notify_val & KEY_A_ON)
-    {
-        light_ptr->set_all(255, 100, 0); //荧光橙
-    }
-    if (notify_val & KEY_D_ON)
-    {
-        light_ptr->set_all(255, 0, 255); //荧光粉
-    }
-
-    if ((notify_val & KEY_W_OFF) || (notify_val & KEY_S_OFF)
-        || (notify_val & KEY_A_OFF) || (notify_val & KEY_D_OFF))
-    {
-        light_ptr->set_all(0, 0, 0); // 关闭
-    }
-
-    if (!light_ptr->WS2812_isbusy())
-    {
-        light_ptr->update_light();
-    }
 }
 
 extern "C"
@@ -287,10 +250,6 @@ extern "C"
         {
             vTaskDelay(pdMS_TO_TICKS(500));
         }
-
-        //初始让灯灭
-        light_ptr->set_all(0, 0, 0);
-        light_ptr->update_light();
 
         // 2. 初始清理操作，并绘制静态结构
         ui_ptr->clear_all();
@@ -332,10 +291,7 @@ extern "C"
     void uav_ui_init(void *argument)
     {
         referee_ptr = referee_drv_t::get_instance();
-        light_ptr   = WS2812_drv_t::get_instance();
         ui_ptr      = new ui_drv_t(referee_ptr);
-
-        light_ptr->WS2812_Init();
 
         auto &vrc =rc_drv_t::read();
         gimbal_ptr->start();

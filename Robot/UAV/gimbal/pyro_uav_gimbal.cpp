@@ -26,18 +26,18 @@ status_t uav_gimbal_t::_init()
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_rotate_range(-30, 30);
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_torque_range(-7, 7);
 
-    gimbal_ctx.yaw_td.r = 1500.0f;   // 根据响应速度调整 响应慢的话调大到 600-800 计算公式 比如目标角度变了0.1° 我想让云台在50ms内跟上这个变化
+    gimbal_ctx.yaw_td.r = 3000.0f;   // 根据响应速度调整 响应慢的话调大到 600-800 计算公式 比如目标角度变了0.1° 我想让云台在50ms内跟上这个变化
                                     // 0.1 = 1/2 * r * （0.05）² 但要克服阻力 惯性等因素 所以要给大一点
-    gimbal_ctx.yaw_td.h = 0.005f;   // 滤波因子，一般设为 5~10 倍 dt 响应慢的话可以适当调小
+    gimbal_ctx.yaw_td.h = 0.002f;   // 滤波因子，一般设为 5~10 倍 dt 响应慢的话可以适当调小
     gimbal_ctx.yaw_td.dt = 0.001f;  //控制周期
 
-    gimbal_ctx.pitch_td.r = 700.0f;
-    gimbal_ctx.pitch_td.h = 0.004f;
+    gimbal_ctx.pitch_td.r = 6000.0f;
+    gimbal_ctx.pitch_td.h = 0.002f;
     gimbal_ctx.pitch_td.dt = 0.001f;
 
     // Order=2, omega_o - 观测器带宽, b - 控制增益项
     // z_limit 为扰动观测值的限制，防止异常抖动
-    gimbal_ctx.yaw_leso = new leso_t<2>(110.0f, 8.0f, 5.0f);
+    gimbal_ctx.yaw_leso = new leso_t<2>(100.0f, 2.0f, 5.0f);
     gimbal_ctx.pitch_leso = new leso_t<2>(80.0f, 10.0f, 8.0f);
 
     gimbal_ctx.cfg.pid_ctx.yaw_position_pid = new pid_t(22.5f,0.001f,0.0005f,0.5f,
@@ -51,33 +51,28 @@ status_t uav_gimbal_t::_init()
                 7.0f,80,20,4);
 
     //自瞄pid
-    // gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.5f,0.006f,0.001f,0.8f,
-    //            8.0f,200,100,4);
-    // gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(2.9f,0.08f,0.0008f,1.0f,
-    //             3.0f,200,100,4);
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.5f,0.006f,0.001f,0.8f,
-       8.0f,200,100,4);
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(2.9f,0.08f,0.0008f,1.0f,3.0f,
-        200,100,4);
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(20.5f,0.0f,0.003f,0.8f,
+       10.0f);
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(1.1f,0.08f,0.0002f,1.0f,3.0f);
 
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(22.5f,0.008f,0.005f,0.8f,
-                8.0f,100,40,4);
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(1.15f,0.075f,0.0015f,0.8f,
-                7.0f,100,40,4);
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(22.5f,0.0f,0.001f,0.8f,
+                9.0f);
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(0.8f,0.0f,0.00045f,0.8f,
+                7.0f);
 
-    //前哨战pid
-    gimbal_ctx.cfg.pid_ctx.yaw_position_pid_tower = new pid_t(11.5f, 0.0f, 0.0025f, 0.0f, 5.0f,
+    //前哨站pid
+    gimbal_ctx.cfg.pid_ctx.yaw_position_pid_tower = new pid_t(20.5f, 0.001f, 0.0025f, 0.0f, 6.0f,
         100,50,4);
-    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid_tower = new pid_t(1.3f, 0.01f, 0.0001f, 0.0f, 3.0f,
+    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid_tower = new pid_t(1.1f, 0.01f, 0.0004f, 0.0f, 3.0f,
         100,50,4);
 
-    gimbal_ctx.cfg.pid_ctx.pitch_position_pid_tower = new pid_t(12.5f, 0.0f,  0.018f,0.0f,6.0f);
-    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid_tower = new pid_t(1.6f,0.02f,0.0005f,1.2f, 7.0f);
+    gimbal_ctx.cfg.pid_ctx.pitch_position_pid_tower = new pid_t(15.5f, 0.0f,  0.018f,0.0f,8.0f);
+    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid_tower = new pid_t(1.2f,0.02f,0.0005f,1.2f, 7.0f);
 
     //测试LESO
-    gimbal_ctx.cfg.pid_ctx.yaw_position_pid_leso = new pid_t(20.0f,0.0f,0.0f,0.0f,
+    gimbal_ctx.cfg.pid_ctx.yaw_position_pid_leso = new pid_t(5.0f,0.0f,0.0f,0.0f,
                 10.0f);
-    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid_leso = new pid_t(1.2f,0.0f,0.0f,0.0f,
+    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid_leso = new pid_t(1.0f,0.0f,0.0f,0.0f,
                 3.0f);
 
     gimbal_ctx.cfg.pid_ctx.pitch_position_pid_leso = new pid_t(12.5f, 0.0f, 0.018f, 0.0f, 8.0f);
@@ -169,21 +164,34 @@ void uav_gimbal_t::rc_gimbal_control(gimbal_ctx_t *ctx)
 
 void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
 {
-    float yaw_ff = ctx->auto_ctx.kalman_yaw_v * 0.3f;
-    float pitch_ff = ctx->auto_ctx.kalman_pitch_v * 0.5f;
+    td_calculate(&ctx->yaw_td,ctx->data._target_yaw_angle);
+    td_calculate(&ctx->pitch_td,ctx->data._target_pitch_angle);
 
-    ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.yaw_position_pid_tower->calculate(
-            ctx->data._target_yaw_angle,  ctx->data._current_imu_yaw_angle) + yaw_ff;
+    if (abs(ctx->auto_ctx.kalman_yaw_v) < 0.001f)
+    {
+        ctx->auto_ctx.kalman_yaw_v = 0.0f;
+    }
+    if (abs(ctx->auto_ctx.kalman_pitch_v) < 0.005f)
+    {
+        ctx->auto_ctx.kalman_yaw_v = 0.0f;
+    }
 
-    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.yaw_speed_pid_tower->calculate(
+    float yaw_ff = ctx->yaw_td.x2 * 0.05f;
+    float pitch_ff = ctx->pitch_td.x2 * 1.4f;
+
+    //加0.01后 在阶跃信号为0.2rad的情况下 基本跟上
+    ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.auto_yaw_position_pid->calculate(
+            ctx->yaw_td.x1,  ctx->data._current_imu_yaw_angle) + yaw_ff;
+
+    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.auto_yaw_speed_pid->calculate(
             ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
 
-    ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.pitch_position_pid_tower->calculate(
-             ctx->data._target_pitch_angle, ctx->data._current_imu_pitch_angle) + pitch_ff;
+    ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.auto_pitch_position_pid->calculate(
+             ctx->pitch_td.x1, ctx->data._current_imu_pitch_angle) + pitch_ff;
 
     //0.92是让pitch读取到的imu数据为0时的力矩 再乘上角度cos就能得到要补偿的重力大小
     ctx->data.gravity_compensate = -0.92f * cosf(ctx->data._current_imu_pitch_angle);
-    ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.pitch_speed_pid_tower->calculate(
+    ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.auto_pitch_speed_pid->calculate(
         ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed) + ctx->data.gravity_compensate;
 }
 
@@ -193,7 +201,7 @@ void uav_gimbal_t::auto_aim_gimbal_control_leso(gimbal_ctx_t *ctx)
     float yaw_ff = ctx->auto_ctx.kalman_yaw_v * 0.6f;
 
     ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.yaw_position_pid_leso->calculate
-            (ctx->data._target_yaw_angle,ctx->data._current_imu_yaw_angle) + yaw_ff;
+            (ctx->data._target_yaw_angle,ctx->data._current_imu_yaw_angle);// + yaw_ff;
     ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.yaw_speed_pid_leso->calculate(
             ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
     //引入leso

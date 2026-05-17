@@ -28,9 +28,9 @@ status_t uav_booster_t::_init()
 
     //摩擦轮pid初始化
     booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(8.0f, 0.0f, 0.007f,1.0f,
-       20, 60, 15, 4);
+       20);
     booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(7.6f, 0.0f, 0.007f,1.0f,
-        20, 60, 15, 4);
+        20);
 
     //拨弹盘pid初始化
     booster_ctx.cfg.pid_cfg.trigger_position_pid =
@@ -343,8 +343,8 @@ float uav_booster_t::heat_control_no_referee(uint8_t level, float Q_res) const
 
     const heat_control_t *p = &booster_ctx.shoot_data.HeatControlParams[level];
 
-    constexpr float Q_stop = 15.0f;
-    constexpr float Q_low  = 35.0f;
+    constexpr float Q_stop = 30.0f;
+    constexpr float Q_low  = 50.0f;
 
     if (Q_res >= p->Q_start_sloop)
     {
