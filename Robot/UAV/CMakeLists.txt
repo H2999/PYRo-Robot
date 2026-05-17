@@ -4,7 +4,6 @@ add_library(UAV OBJECT
         booster/booster_config.h
         gimbal/gimbal_config.h
         application/pyro_ui_app.cpp
-        usb_to_f1/usb_to_light.h
 )
 target_sources(UAV
         PRIVATE
@@ -33,8 +32,6 @@ target_sources(UAV
         gimbal/feedforward_kf/forecast_v.cpp
 
         WS2812/WS2812.cpp
-        usb_to_f1/usb_to_light.cpp
-
 )
 
 target_include_directories(UAV
@@ -58,5 +55,5 @@ target_compile_definitions(PYRo PUBLIC
         REFEREE_UART=PYRO_UART1
         AUTOAIM_UART=PYRO_UART10
         VT03_UART=PYRO_UART7
-#        JCOM_DEBUG_PORT=PYRO_UART10
+        JCOM_DEBUG_PORT=PYRO_UART10
 )

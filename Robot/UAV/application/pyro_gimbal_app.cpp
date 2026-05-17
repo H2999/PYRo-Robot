@@ -21,7 +21,7 @@ static uint32_t KEY_SHIFT               = (1 << 1);
 static uint32_t KEY_S                   = (1 << 2);
 
 static TaskHandle_t gimbal_task_handle       = nullptr;
-static constexpr float rc_sensitivity = 0.0015f;
+static constexpr float rc_sensitivity = 0.0035f;
 //位控相当于对速度进行积分 所以是target+=current * delta t 这里直接把灵敏度和delta乘到一起了写成了 rc_sensitivity
 
 extern "C"

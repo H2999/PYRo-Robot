@@ -77,8 +77,8 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_pitch_angle = pitch_min_value;
     }
 
-    auto_aim_gimbal_control(&owner->gimbal_ctx);
-    // auto_aim_gimbal_control_leso(&owner->gimbal_ctx);
+    // auto_aim_gimbal_control(&owner->gimbal_ctx);
+    auto_aim_gimbal_control_leso(&owner->gimbal_ctx);
     send_motor_command(&owner->gimbal_ctx);
 }
 

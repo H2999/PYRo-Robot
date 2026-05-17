@@ -37,18 +37,18 @@ status_t uav_gimbal_t::_init()
 
     // Order=2, omega_o - 观测器带宽, b - 控制增益项
     // z_limit 为扰动观测值的限制，防止异常抖动
-    gimbal_ctx.yaw_leso = new leso_t<2>(120.0f, 10.0f, 0.8f);
-    gimbal_ctx.pitch_leso = new leso_t<2>(80.0f, 50.0f, 0.8f);
+    gimbal_ctx.yaw_leso = new leso_t<2>(110.0f, 8.0f, 5.0f);
+    gimbal_ctx.pitch_leso = new leso_t<2>(80.0f, 10.0f, 8.0f);
 
-    gimbal_ctx.cfg.pid_ctx.yaw_position_pid = new pid_t(25.5f,0.0f,0.0005f,0.0f,
-               10.0f,50,20,4);
-    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(3.2f,0.08f,0.0003f,1.5f,
-                3.0f,50,20,4);
+    gimbal_ctx.cfg.pid_ctx.yaw_position_pid = new pid_t(22.5f,0.001f,0.0005f,0.5f,
+               6.0f,80,50,4);
+    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(1.1f,0.05f,0.0f,1.2f,
+                3.0f,80,50,4);
 
-    gimbal_ctx.cfg.pid_ctx.pitch_position_pid = new pid_t(20.2f,0.0004f,0.006f,0.4f,
+    gimbal_ctx.cfg.pid_ctx.pitch_position_pid = new pid_t(24.2f,0.0004f,0.006f,0.4f,
                 9.0f,50,30,4);
-    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid = new pid_t(1.1f,0.007f,0.01f,1.2f,
-                7.0f,30,10,4);
+    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid = new pid_t(1.2f,0.007f,0.0f,1.2f,
+                7.0f,80,20,4);
 
     //自瞄pid
     // gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.5f,0.006f,0.001f,0.8f,
@@ -65,7 +65,7 @@ status_t uav_gimbal_t::_init()
     gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(1.15f,0.075f,0.0015f,0.8f,
                 7.0f,100,40,4);
 
-
+    //前哨战pid
     gimbal_ctx.cfg.pid_ctx.yaw_position_pid_tower = new pid_t(11.5f, 0.0f, 0.0025f, 0.0f, 5.0f,
         100,50,4);
     gimbal_ctx.cfg.pid_ctx.yaw_speed_pid_tower = new pid_t(1.3f, 0.01f, 0.0001f, 0.0f, 3.0f,
@@ -75,10 +75,13 @@ status_t uav_gimbal_t::_init()
     gimbal_ctx.cfg.pid_ctx.pitch_speed_pid_tower = new pid_t(1.6f,0.02f,0.0005f,1.2f, 7.0f);
 
     //测试LESO
-    gimbal_ctx.cfg.pid_ctx.yaw_position_pid_leso = new pid_t(30.0f,0.0f,0.0f,0.0f,
-                10.0f,150,100,4);
-    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid_leso = new pid_t(1.0f,0.0f,0.0f,0.0f,
-                3.0f,150,100,4);
+    gimbal_ctx.cfg.pid_ctx.yaw_position_pid_leso = new pid_t(20.0f,0.0f,0.0f,0.0f,
+                10.0f);
+    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid_leso = new pid_t(1.2f,0.0f,0.0f,0.0f,
+                3.0f);
+
+    gimbal_ctx.cfg.pid_ctx.pitch_position_pid_leso = new pid_t(12.5f, 0.0f, 0.018f, 0.0f, 8.0f);
+    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid_leso = new pid_t(1.6f, 0.0f, 0.0005f, 1.2f, 7.0f);
 
     return PYRO_OK;
 }
@@ -136,21 +139,21 @@ void uav_gimbal_t::_fsm_execute()
 
 void uav_gimbal_t::rc_gimbal_control(gimbal_ctx_t *ctx)
 {
-    float observed_disturbance = ctx->yaw_leso->get_disturbance();
+    // float observed_disturbance = ctx->yaw_leso->get_disturbance();
 
     float yaw_ff = ctx->cmd->yaw_delta_angle / control_dt * yaw_k_ff;
 
-    ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.yaw_position_pid_leso->calculate
+    ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.yaw_position_pid->calculate
             (ctx->data._target_yaw_angle,ctx->data._current_imu_yaw_angle) + yaw_ff;
 
-    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.yaw_speed_pid_leso->calculate(
+    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.yaw_speed_pid->calculate(
             ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
 
     // 4.LESO 核心：扰动补偿
     // 扰动项 z2 包含了摩擦、不平衡力矩等，将其反向叠加到输出中
     // 补偿系数通常为 1/b
-    float compensation = - (observed_disturbance / ctx->yaw_leso->get_b());
-    ctx->data._output_yaw_torque += compensation;
+    // float compensation = - (observed_disturbance / ctx->yaw_leso->get_b());
+    // ctx->data._output_yaw_torque += compensation;
 
     float pitch_speed_ff = ctx->cmd->pitch_delta_angle / control_dt * pitch_k_ff;
 
