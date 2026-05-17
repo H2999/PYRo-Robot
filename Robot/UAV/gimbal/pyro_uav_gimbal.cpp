@@ -42,7 +42,7 @@ status_t uav_gimbal_t::_init()
 
     gimbal_ctx.cfg.pid_ctx.yaw_position_pid = new pid_t(22.5f,0.001f,0.0005f,0.5f,
                6.0f,80,50,4);
-    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(1.1f,0.05f,0.0f,1.2f,
+    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid = new pid_t(0.9f,0.05f,0.0f,1.2f,
                 3.0f,80,50,4);
 
     gimbal_ctx.cfg.pid_ctx.pitch_position_pid = new pid_t(24.2f,0.0004f,0.006f,0.4f,

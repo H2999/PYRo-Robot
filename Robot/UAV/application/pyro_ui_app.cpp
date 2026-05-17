@@ -47,43 +47,50 @@ void ui_draw_static()
      //摩擦轮速度显示
      .draw_line("YAW_ANGLE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
                              1520, 580, 1820,580)
-     .draw_line("PITCH_ANGLE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                             1520, 210, 1820,210)
-     // .draw_circle("FRIC1", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-     //                   1580, 750, 30)
-     .draw_circle("FRIC2", ui_operate::ADD, 1, ui_color::ALLY, 4,
-                       1700, 750, 30);
+     .draw_line("PITCH_ANGLE", ui_operate::ADD, 2, ui_color::CYAN, 4,
+                             1520, 490, 1820,490)
+     .draw_circle("F1", ui_operate::ADD, 5, ui_color::YELLOW, 4,
+                       1700, 750, 30)
+     .draw_circle("F2", ui_operate::ADD, 6, ui_color::YELLOW, 4,
+                       1580, 750, 30)
+    .draw_circle("T1", ui_operate::ADD, 6, ui_color::MAGENTA, 4,
+                       1820, 750, 30);
 
-    ui_ptr->flush(); // 拼包发送
+     ui_ptr->flush(); // 拼包发送
+
     // 1. 绘制静态文本标签 (注意名字不能重复)
     //两轴角度
     ui_ptr->draw_string("ST1", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
                         20, 4, 1540, 620, " YAW :");
     ui_ptr->draw_string("ST2", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
-                        20, 4, 1540, 450, "PITCH:");
-    //摩擦轮速度数据
-    ui_ptr->draw_string("ST3", pyro::ui_operate::ADD, 3, pyro::ui_color::ALLY,
-                        20, 2, 110, 800, "FRIC1:");
-    ui_ptr->draw_string("ST4", pyro::ui_operate::ADD, 3, pyro::ui_color::ALLY,
-                        20, 2, 110, 750, "FRIC2:");
+                        20, 4, 1540, 540, "PITCH:");
     //热量数据
-    ui_ptr->draw_string("ST5", pyro::ui_operate::ADD, 3, pyro::ui_color::GREEN,
-                       20, 4, 800, 115, "HEAT:");
-    ui_ptr->draw_string("ST6", pyro::ui_operate::ADD, 3, pyro::ui_color::GREEN,
-                        20, 4, 920, 115, "PREC:");
+    ui_ptr->draw_string("ST5", pyro::ui_operate::ADD, 4, pyro::ui_color::GREEN,
+                       20, 4, 750, 315, "HEAT:");
+    ui_ptr->draw_string("ST6", pyro::ui_operate::ADD, 4, pyro::ui_color::YELLOW,
+                        20, 4, 980, 315, "RES:");
+    ui_ptr->flush();
 
     // 2. 为动态数值提前进行 ADD 占位，赋予初始值，方便后续直接 MODIFY
     ui_ptr
-        ->draw_float("DF1", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
-                     2, 230, 800, 0.0f)
-        .draw_float("DF2", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
-                    2, 230, 750, 0.0f)
-        .draw_float("DF3", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
-                     2, 1600, 580, 0.0f)
+        ->draw_float("DF3", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
+                     2, 1670, 620, 0.0f)//yaw
         .draw_float("DF4", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
-                    2, 1600, 410, 0.0f);
+                    2, 1670, 540, 0.0f)//pitch
+        .draw_float("heat_max", pyro::ui_operate::ADD, 5, pyro::ui_color::ALLY, 20,
+                3, 850, 315, uav_booster_ptr->get_data()->shoot_data.Q_max)
+        .draw_float("heat_res", pyro::ui_operate::ADD, 1, pyro::ui_color::GREEN, 20,
+                3, 1065, 315, 0.0f);
+
+    ui_ptr->draw_circle("F3", ui_operate::ADD, 5, ui_color::YELLOW, 1,
+                       1700, 750, 30)
+        .draw_circle("F4", ui_operate::ADD, 6, ui_color::YELLOW, 1,
+                       1580, 750, 30)
+        .draw_circle("T1", ui_operate::ADD, 6, ui_color::MAGENTA, 1,
+                       1820, 750, 30);
     ui_ptr->flush(); // 拼包发送
 }
+
 //绘制自瞄ui
 void update_aim_ui()
 {
@@ -137,6 +144,9 @@ void update_aim_ui()
 //绘制热量进度条
 void update_heat_progress_bar(float current_heat, float max_heat)
 {
+    ui_ptr->draw_float("heat_res", ui_operate::MODIFY, 2, ui_color::GREEN,20,3,
+              1080, 315, uav_booster_ptr->get_data()->shoot_data.Q_now_no_referee);
+
     // 1. 计算比例并限幅 (0.0 ~ 1.0)
     float ratio = (max_heat > 0.0f) ? (current_heat / max_heat) : 0.0f;
     ratio = std::clamp(ratio, 0.0f, 1.0f);
@@ -173,27 +183,25 @@ void update_booster_ui()
 
     if (uav_booster_ptr->get_data()->cmd->fric_enable)
     {
-        // 只有开启时才显示绿色，且只用 MODIFY
-        ui_ptr->draw_circle("C03", ui_operate::MODIFY, 1, ui_color::GREEN,
-              35, 1580, 750, 17)
-              .draw_circle("C04", ui_operate::MODIFY, 1, ui_color::GREEN,
-              35, 1700, 750, 17)
-              .draw_float("DF1", ui_operate::MODIFY, 4, ui_color::YELLOW,
-              20, 2, 230, 800, fric1_mps)
-              .draw_float("DF2", ui_operate::MODIFY, 4, ui_color::YELLOW,
-              20, 2, 230, 750, fric2_mps);
+        ui_ptr->draw_circle("F3", ui_operate::MODIFY, 5, ui_color::GREEN,
+              50, 1700, 750, 6)
+              .draw_circle("F4", ui_operate::MODIFY, 6, ui_color::GREEN,
+              50, 1580, 750, 6);
+        if (uav_booster_ptr->get_data()->cmd->trigger_enable)
+        {
+            ui_ptr->draw_circle("T1", ui_operate::MODIFY, 6, ui_color::MAGENTA,
+              50, 1820, 750, 6);
+        }
     }
     else
     {
         // 关闭时，将圆圈改为白色（或背景色），数值归零
-        ui_ptr->draw_circle("C03", ui_operate::MODIFY, 1, ui_color::WHITE,
-              1, 1580, 750, 17)
-              .draw_circle("C04", ui_operate::MODIFY, 1, ui_color::WHITE,
-              1, 1700, 750, 17)
-              .draw_float("DF1", ui_operate::MODIFY, 4, ui_color::WHITE,
-              20, 2, 230, 800, 0.0f)
-              .draw_float("DF2", ui_operate::MODIFY, 4, ui_color::WHITE,
-              20, 2, 230, 750, 0.0f);
+        ui_ptr->draw_circle("F3", ui_operate::MODIFY, 5, ui_color::YELLOW, 1,
+                       1700, 750, 30)
+        .draw_circle("F4", ui_operate::MODIFY, 6, ui_color::YELLOW, 1,
+                       1580, 750, 30)
+        .draw_circle("T1", ui_operate::MODIFY, 6, ui_color::MAGENTA, 4,
+                       1820, 750, 30);
     }
 }
 
@@ -207,8 +215,8 @@ void update_gimbal_ui()
     // 只有角度变化超过 0.1 度才发包
     if (std::abs(yaw - last_yaw) > 0.1f || std::abs(pitch - last_pitch) > 0.1f)
     {
-        ui_ptr->draw_float("DF3", ui_operate::MODIFY, 4, ui_color::ALLY, 20, 4, 1600, 620, yaw)
-              .draw_float("DF4", ui_operate::MODIFY, 4, ui_color::ALLY, 20, 4, 1600, 450, pitch);
+        ui_ptr->draw_float("DF3", ui_operate::MODIFY, 4, ui_color::ALLY, 20, 4, 1670, 620, yaw)
+              .draw_float("DF4", ui_operate::MODIFY, 4, ui_color::ALLY, 20, 4, 1670, 540, pitch);
         last_yaw = yaw;
         last_pitch = pitch;
     }
@@ -222,9 +230,6 @@ void ui_update_dynamic()
     update_booster_ui();
 
     update_aim_ui();
-
-    update_heat_progress_bar(uav_booster_ptr->get_data()->shoot_data.Q_now_no_referee,
-                                                    uav_booster_ptr->get_data()->shoot_data.Q_max);
 
     ui_ptr->flush();
 }

@@ -21,7 +21,7 @@ static uint32_t KEY_SHIFT               = (1 << 1);
 static uint32_t KEY_S                   = (1 << 2);
 
 static TaskHandle_t gimbal_task_handle       = nullptr;
-static constexpr float rc_sensitivity = 0.0035f;
+static constexpr float rc_sensitivity = 0.0025f;
 //位控相当于对速度进行积分 所以是target+=current * delta t 这里直接把灵敏度和delta乘到一起了写成了 rc_sensitivity
 
 extern "C"
@@ -95,7 +95,7 @@ void gimbalvt03cmd(uint32_t notify_val)
         gimbal_cmd_ptr->auto_flag = false;
 
         gimbal_cmd_ptr->pitch_delta_angle =
-            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.06f;
+            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.04f;
         gimbal_cmd_ptr->yaw_delta_angle =
             -vrc.axes.rx * 0.0015f - vrc.mouse_axes.x * 0.12f;
     }
