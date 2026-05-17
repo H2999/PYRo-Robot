@@ -54,6 +54,15 @@ extern "C"
             if (autoaim_drv_ptr->check_online())
             {
                 rx_data = autoaim_drv_ptr->get_target_data();
+                if (rx_data.fire)
+                {
+                    uav_booster_ptr->get_data()->shoot_delay_ctx.aim_timestamp = dwt_drv_t::get_timeline_ms();
+                    uav_booster_ptr->get_data()->shoot_delay_ctx.shoot_cmd_timestamp =
+                        uav_booster_ptr->get_data()->shoot_delay_ctx.aim_timestamp;
+                    uav_booster_ptr->get_data()->shoot_delay_ctx.waiting_for_launch = true;
+                }
+
+
             }
             // 发送云台状态回传给 PC
             update_and_send_feedback();

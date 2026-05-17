@@ -33,7 +33,7 @@ void uav_booster_t::fsm_active_t::on_execute(uav_booster_t *owner)
 
     constexpr float STALL_TIME_THRESHOLD   = 600.0f; // 堵转时间阈值
     constexpr float STALL_TORQUE_THRESHOLD = 6.0f;   // 堵转扭矩阈值
-    constexpr float STALL_SPEED_THRESHOLD  = 0.4f;   // 堵转速度阈值
+    constexpr float STALL_SPEED_THRESHOLD  = 0.5f;   // 堵转速度阈值
 
      static float stall_start_time          = 0.0f;
      if (_active_state != &reset_state && _active_state != &middle_state)

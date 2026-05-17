@@ -56,7 +56,7 @@ status_t uav_gimbal_t::_init()
     // gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(2.9f,0.08f,0.0008f,1.0f,
     //             3.0f,200,100,4);
     gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.5f,0.006f,0.001f,0.8f,
-        8.0f,200,100,4);
+       8.0f,200,100,4);
     gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(2.9f,0.08f,0.0008f,1.0f,3.0f,
         200,100,4);
 
@@ -64,6 +64,15 @@ status_t uav_gimbal_t::_init()
                 8.0f,100,40,4);
     gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(1.15f,0.075f,0.0015f,0.8f,
                 7.0f,100,40,4);
+
+
+    gimbal_ctx.cfg.pid_ctx.yaw_position_pid_tower = new pid_t(11.5f, 0.0f, 0.0025f, 0.0f, 5.0f,
+        100,50,4);
+    gimbal_ctx.cfg.pid_ctx.yaw_speed_pid_tower = new pid_t(1.3f, 0.01f, 0.0001f, 0.0f, 3.0f,
+        100,50,4);
+
+    gimbal_ctx.cfg.pid_ctx.pitch_position_pid_tower = new pid_t(12.5f, 0.0f,  0.018f,0.0f,6.0f);
+    gimbal_ctx.cfg.pid_ctx.pitch_speed_pid_tower = new pid_t(1.6f,0.02f,0.0005f,1.2f, 7.0f);
 
     //测试LESO
     gimbal_ctx.cfg.pid_ctx.yaw_position_pid_leso = new pid_t(30.0f,0.0f,0.0f,0.0f,
@@ -157,68 +166,38 @@ void uav_gimbal_t::rc_gimbal_control(gimbal_ctx_t *ctx)
 
 void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
 {
-    td_calculate(&ctx->yaw_td,ctx->data._target_yaw_angle);
-
-    float observed_disturbance = ctx->yaw_leso->get_disturbance();
-
-    //如果目标变相导致跟踪不及时就不跟
-    float yaw_ff = ctx->auto_ctx.kalman_yaw_v * 0.75f;
+    float yaw_ff = ctx->auto_ctx.kalman_yaw_v * 0.3f;
     float pitch_ff = ctx->auto_ctx.kalman_pitch_v * 0.5f;
 
-    float error = ctx->data._target_yaw_angle - ctx->data._last_target_yaw_angle;
-    if (error * ctx->auto_ctx.kalman_yaw_v < 0.0f)
-    {
-        yaw_ff = pitch_ff = 0.0f;
-    }
-    ctx->data._last_target_yaw_angle = ctx->data._target_yaw_angle;
-
-    ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.auto_yaw_position_pid->calculate(
+    ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.yaw_position_pid_tower->calculate(
             ctx->data._target_yaw_angle,  ctx->data._current_imu_yaw_angle) + yaw_ff;
 
-    //可以先发个固定力矩 看电机往哪边转 a_ff补偿的方向和力矩一样
-    float a_ff = ctx->yaw_td.fh * yaw_torque_k_ff;
-    a_ff = std::clamp(a_ff, -0.6f, 0.6f);
-    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.auto_yaw_speed_pid->calculate(
-            ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed) + a_ff;
+    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.yaw_speed_pid_tower->calculate(
+            ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
 
-    //leso
-    // float compensation = - (observed_disturbance / ctx->yaw_leso->get_b());
-    // if (abs(compensation) < 0.05f)
-    // {
-    //     compensation = 0.0f;
-    // }
-    // ctx->data._output_yaw_torque += compensation;
-
-    ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.auto_pitch_position_pid->calculate(
+    ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.pitch_position_pid_tower->calculate(
              ctx->data._target_pitch_angle, ctx->data._current_imu_pitch_angle) + pitch_ff;
 
     //0.92是让pitch读取到的imu数据为0时的力矩 再乘上角度cos就能得到要补偿的重力大小
     ctx->data.gravity_compensate = -0.92f * cosf(ctx->data._current_imu_pitch_angle);
-    ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.pitch_speed_pid->calculate(
+    ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.pitch_speed_pid_tower->calculate(
         ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed) + ctx->data.gravity_compensate;
 }
 
 void uav_gimbal_t::auto_aim_gimbal_control_leso(gimbal_ctx_t *ctx)
 {
-    td_calculate(&ctx->yaw_td,ctx->data._target_yaw_angle);
-
     float yaw_observed_disturbance = ctx->yaw_leso->get_disturbance();
-    float yaw_ff = ctx->auto_ctx.kalman_yaw_v * 0.7f;
+    float yaw_ff = ctx->auto_ctx.kalman_yaw_v * 0.6f;
 
     ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.yaw_position_pid_leso->calculate
             (ctx->data._target_yaw_angle,ctx->data._current_imu_yaw_angle) + yaw_ff;
-
-    float a_ff = ctx->yaw_td.fh * yaw_torque_k_ff;
-    a_ff = std::clamp(a_ff, -0.6f, 0.6f);
     ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.yaw_speed_pid_leso->calculate(
-            ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);// + a_ff;
-    // 4.LESO 核心：扰动补偿
-    // 扰动项 z2 包含了摩擦、不平衡力矩等，将其反向叠加到输出中
-    // 补偿系数通常为 1/b
-    // float compensation = - (yaw_observed_disturbance / ctx->yaw_leso->get_b());
-    // ctx->data._output_yaw_torque += compensation;
+            ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
+    //引入leso
+    float compensation = - (yaw_observed_disturbance / ctx->yaw_leso->get_b());
+    ctx->data._output_yaw_torque += compensation;
 
-    float pitch_ff = ctx->auto_ctx.kalman_pitch_v * 0.55f;
+    float pitch_ff = ctx->auto_ctx.kalman_pitch_v * 0.5f;
 
     ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.auto_pitch_position_pid->calculate(
              ctx->data._target_pitch_angle, ctx->data._current_imu_pitch_angle) + pitch_ff;
@@ -226,7 +205,7 @@ void uav_gimbal_t::auto_aim_gimbal_control_leso(gimbal_ctx_t *ctx)
     //0.92是让pitch读取到的imu数据为0时的力矩 再乘上角度cos就能得到要补偿的重力大小
     ctx->data.gravity_compensate = -0.92f * cosf(ctx->data._current_imu_pitch_angle);
 
-    ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.pitch_speed_pid->calculate(
+    ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.auto_pitch_speed_pid->calculate(
         ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed) + ctx->data.gravity_compensate;
 }
 
@@ -235,12 +214,6 @@ void uav_gimbal_t::send_motor_command(const gimbal_ctx_t *ctx)
      ctx->cfg.motor_ctx.yaw_motor->send_torque(ctx->data._output_yaw_torque);
      ctx->cfg.motor_ctx.pitch_motor->send_torque(ctx->data._output_pitch_torque);
 }
-
-// void uav_gimbal_t::normalize_angle(float& angle)
-// {
-//     while (angle > PI)  angle -= 2.0f * PI;
-//     while (angle < -PI) angle += 2.0f * PI;
-// }
 
 //用fmod 防止某些极端情况while卡死
 void uav_gimbal_t::normalize_angle(float& angle)

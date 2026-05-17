@@ -42,8 +42,7 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.ui_ctx.is_aiming_locked = true;
         owner->gimbal_ctx.data._target_yaw_angle = owner->gimbal_ctx.cmd->yaw_target_angle;
 
-        const float last_yaw_v = owner->gimbal_ctx.auto_ctx.kalman_yaw_v;
-        owner->gimbal_ctx.auto_ctx.kalman_yaw_v = rx_data.yaw_omega * 0.8f + last_yaw_v * 0.2f;
+        owner->gimbal_ctx.auto_ctx.kalman_yaw_v = rx_data.yaw_omega;
         owner->gimbal_ctx.auto_ctx.kalman_yaw_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_yaw_v,-5.0f,5.0f);
     }
     //限位
@@ -65,8 +64,7 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         //坐标系不同 所以加个负号
         owner->gimbal_ctx.data._target_pitch_angle = - owner->gimbal_ctx.cmd->pitch_target_angle;
 
-        const float last_pitch_v = owner->gimbal_ctx.auto_ctx.kalman_pitch_v;
-        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = rx_data.pitch_omega * 0.8f + last_pitch_v * 0.2f;
+        owner->gimbal_ctx.auto_ctx.kalman_pitch_v = rx_data.pitch_omega;
         owner->gimbal_ctx.auto_ctx.kalman_pitch_v = std::clamp(owner->gimbal_ctx.auto_ctx.kalman_pitch_v,-4.5f,4.5f);
     }
 
@@ -79,8 +77,8 @@ void uav_gimbal_t::fsm_active_t::state_auto_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_pitch_angle = pitch_min_value;
     }
 
-    // auto_aim_gimbal_control(&owner->gimbal_ctx);
-    auto_aim_gimbal_control_leso(&owner->gimbal_ctx);
+    auto_aim_gimbal_control(&owner->gimbal_ctx);
+    // auto_aim_gimbal_control_leso(&owner->gimbal_ctx);
     send_motor_command(&owner->gimbal_ctx);
 }
 

@@ -45,15 +45,6 @@ void uav_gimbal_t::fsm_active_t::state_rc_t::execute(uav_gimbal_t *owner)
         owner->gimbal_ctx.data._target_pitch_angle = pitch_min_value;
         owner->gimbal_ctx.cmd->pitch_delta_angle = 0.0f;
     }
-    // const float pitch_error = owner->gimbal_ctx.data._target_pitch_angle - owner->gimbal_ctx.data._current_imu_pitch_angle;
-    // if (pitch_error > PI)
-    // {
-    //     owner->gimbal_ctx.data._target_pitch_angle -= 2.0f * PI;
-    // }
-    // else if (pitch_error < -PI)
-    // {
-    //     owner->gimbal_ctx.data._target_pitch_angle += 2.0f * PI;
-    // }
 
     rc_gimbal_control(&owner->gimbal_ctx);
     send_motor_command(&owner->gimbal_ctx);

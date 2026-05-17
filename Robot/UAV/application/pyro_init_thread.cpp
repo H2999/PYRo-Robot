@@ -40,7 +40,6 @@ namespace pyro
             dr16_drv_t::instance().enable();
             DR16_UART.reset(100000, UART_WORDLENGTH_9B, UART_STOPBITS_2,
                     UART_PARITY_EVEN);
-            DR16_UART.enable_rx_dma();
 #endif
 
 #ifdef VT03_UART
