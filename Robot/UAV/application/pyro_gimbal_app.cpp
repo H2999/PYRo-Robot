@@ -19,6 +19,8 @@ extern autoaim_drv_t::rx_data_t rx_data;
 static uint32_t KEY_CTRL                = (1 << 0);
 static uint32_t KEY_SHIFT               = (1 << 1);
 static uint32_t KEY_S                   = (1 << 2);
+static uint32_t MOUSE_ENTER_AIM         = (1 << 3);
+static uint32_t MOUSE_EXIT_AIM          = (1 << 4);
 
 static TaskHandle_t gimbal_task_handle       = nullptr;
 static constexpr float rc_sensitivity = 0.0025f;
@@ -67,6 +69,19 @@ void gimbalvt03cmd(uint32_t notify_val)
     read_scope_lock lock(vt03_drv_t::get_lock());
     const auto &vrc = rc_drv_t::read();
 
+    static bool mouse_aiming = false;
+
+    // 收到长按开始信号
+    if (notify_val & MOUSE_ENTER_AIM)
+    {
+        mouse_aiming = true;
+    }
+    // 收到弹起信号
+    if (notify_val & MOUSE_EXIT_AIM)
+    {
+        mouse_aiming = false;
+    }
+
     if (sw_pos_t::UP == vrc.switches.gear.current_pos)
     {
         gimbal_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
@@ -77,7 +92,7 @@ void gimbalvt03cmd(uint32_t notify_val)
 
     gimbal_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
 
-    if (sw_pos_t::DOWN == vrc.switches.gear.current_pos)
+    if (sw_pos_t::DOWN == vrc.switches.gear.current_pos || mouse_aiming)
     {
         gimbal_cmd_ptr->auto_flag = true;
 
@@ -85,12 +100,11 @@ void gimbalvt03cmd(uint32_t notify_val)
         gimbal_cmd_ptr->pitch_target_angle = rx_data.shoot_pitch;
 
         gimbal_cmd_ptr->pitch_delta_angle =
-            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.1f;
+            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.15f;
         gimbal_cmd_ptr->yaw_delta_angle =
-            -vrc.axes.rx * 0.0015f - vrc.mouse_axes.x * 0.12f;
+            -vrc.axes.rx * 0.0015f - vrc.mouse_axes.x * 0.2f;
     }
-
-    if (sw_pos_t::MID == vrc.switches.gear.current_pos)
+    else if (sw_pos_t::MID == vrc.switches.gear.current_pos)
     {
         gimbal_cmd_ptr->auto_flag = false;
 
@@ -99,7 +113,7 @@ void gimbalvt03cmd(uint32_t notify_val)
         gimbal_cmd_ptr->yaw_delta_angle =
             -vrc.axes.rx * 0.0015f - vrc.mouse_axes.x * 0.12f;
     }
-    }
+}
 
 
 void uav_gimbal_main_thread(void *argument)
@@ -136,6 +150,9 @@ void uav_gimbal_init(void *argument)
     btn_broker::subscribe(&vrc.keys.ctrl, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_CTRL);
     btn_broker::subscribe(&vrc.keys.shift, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_SHIFT);
     btn_broker::subscribe(&vrc.keys.s, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_S);
+
+    btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::PRESS_UP,gimbal_task_handle , MOUSE_EXIT_AIM);
+    btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::LONG_PRESS_START,gimbal_task_handle , MOUSE_ENTER_AIM);
 
     vTaskDelete(nullptr);
 }

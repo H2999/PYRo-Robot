@@ -75,7 +75,6 @@ public:
     [[nodiscard]] uint8_t get_robot_id() const;
     booster_ctx_t* get_data();
     float heat_calculate();
-    void _launch_delay_calculate();
 
 private:
     uav_booster_t();
@@ -128,6 +127,9 @@ private:
         float accumulated_rad{};
 
         float accumulated_rad_shoot_delay{};
+
+        float last_shot_time_ms{};
+        float distance{};
     };
 
     struct booster_auto_ctx_t
@@ -191,11 +193,11 @@ private:
         {
             {0},
             // 等级1: Q_max 100, 80开始减速，50降到w_min
-            {100, 80.0f, 20, 3.0, 8.0},
+            {100, 80.0f, 20, 3.0, 7.5},
             // 等级2: Q_max 110, 80开始
-            {110, 80.0f, 30, 3.0, 8.0},
+            {110, 80.0f, 30, 3.5, 8.0},
             // 等级3: Q_max 120, 80开始
-            {120, 80.0f , 40, 3.0, 9.0},
+            {120, 80.0f , 40, 3.5, 8.5},
             // 等级4: Q_max 130, 90开始
             {130, 90.0f, 50, 4.0, 10.2},
             // 等级5: Q_max 140

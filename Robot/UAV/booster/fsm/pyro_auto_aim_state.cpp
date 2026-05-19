@@ -16,8 +16,8 @@ void uav_booster_t::fsm_active_t::shoot_auto_aim_t::execute(uav_booster_t *owner
 
         // const float Q_res = owner->booster_ctx.shoot_data.Q_res;
 
-        owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control_no_referee(4, Q_res);
-        // owner->booster_ctx.data_ctx.target_trigger_radps = 10.0f;
+        // owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control_no_referee(4, Q_res);
+        owner->booster_ctx.data_ctx.target_trigger_radps = 7.0f;
     }
     else
     {

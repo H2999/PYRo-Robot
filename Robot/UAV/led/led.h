@@ -3,8 +3,8 @@
 
 #include "tim.h"
 
-static constexpr uint16_t LED_OFF = 2750;
-constexpr uint16_t LED_ON = 0;
+static constexpr uint16_t LED_OFF = 0;
+constexpr uint16_t LED_ON = 2750;
 
 void front_led_on();
 void front_led_off();

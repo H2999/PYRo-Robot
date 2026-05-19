@@ -18,15 +18,10 @@ extern uav_gimbal_t *gimbal_ptr;
 static uint32_t KEY_CTRL                           = (1 << 0);
 static uint32_t KEY_SHIFT                          = (1 << 1);
 static uint32_t KEY_Z                              = (1 << 2);
-static uint32_t KEY_W_ON                           = (1 << 3);
-static uint32_t KEY_A_ON                           = (1 << 4);
-static uint32_t KEY_S_ON                           = (1 << 5);
-static uint32_t KEY_D_ON                           = (1 << 6);
-
-static uint32_t KEY_W_OFF                          = (1 << 7);
-static uint32_t KEY_A_OFF                          = (1 << 8);
-static uint32_t KEY_S_OFF                          = (1 << 9);
-static uint32_t KEY_D_OFF                          = (1 << 10);
+static uint32_t KEY_W                              = (1 << 3);
+static uint32_t KEY_A                              = (1 << 4);
+static uint32_t KEY_S                              = (1 << 5);
+static uint32_t KEY_D                              = (1 << 6);
 
 static TaskHandle_t ui_task_handle                  = nullptr;
 
@@ -64,6 +59,9 @@ void ui_draw_static()
                         20, 4, 1540, 620, " YAW :");
     ui_ptr->draw_string("ST2", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
                         20, 4, 1540, 540, "PITCH:");
+
+    ui_ptr->draw_string("ST3",pyro::ui_operate::ADD,4,pyro::ui_color::GREEN,
+        20,4,300,500,"DIS");
     //热量数据
     ui_ptr->draw_string("ST5", pyro::ui_operate::ADD, 4, pyro::ui_color::GREEN,
                        20, 4, 750, 315, "HEAT:");
@@ -80,14 +78,19 @@ void ui_draw_static()
         .draw_float("heat_max", pyro::ui_operate::ADD, 5, pyro::ui_color::ALLY, 20,
                 3, 850, 315, uav_booster_ptr->get_data()->shoot_data.Q_max)
         .draw_float("heat_res", pyro::ui_operate::ADD, 1, pyro::ui_color::GREEN, 20,
-                3, 1065, 315, 0.0f);
+                3, 1065, 315, 0.0f)
+        .draw_float("distance",pyro::ui_operate::ADD, 3, pyro::ui_color::CYAN, 20,
+                3, 400, 500, 0.0f);
 
     ui_ptr->draw_circle("F3", ui_operate::ADD, 5, ui_color::YELLOW, 1,
                        1700, 750, 30)
         .draw_circle("F4", ui_operate::ADD, 6, ui_color::YELLOW, 1,
                        1580, 750, 30)
         .draw_circle("T1", ui_operate::ADD, 6, ui_color::MAGENTA, 1,
-                       1820, 750, 30);
+                       1820, 750, 30)
+        .draw_rect("H1", ui_operate::ADD, 1, ui_color::WHITE, 3,
+            740, 300, 1100, 280);//热量条
+
     ui_ptr->flush(); // 拼包发送
 }
 
@@ -162,10 +165,6 @@ void update_heat_progress_bar(float current_heat, float max_heat)
     // 4. 一行 MODIFY 指令直接更新 (前提是 draw_static 里已经 ADD 过同名图形)
     ui_ptr->draw_rect("HEAT_BAR", ui_operate::MODIFY, 1, bar_color, 3,
                       start_x, 140, current_end_x, 230);
-
-    // 5. 数值部分同步更新
-    ui_ptr->draw_float("HEAT_VAL", ui_operate::MODIFY, 4, ui_color::WHITE,
-                       20, 2, 860, 115, current_heat);
 }
 
 //绘制发射机构ui 是否开启摩擦轮 以及当前弹速
@@ -177,6 +176,11 @@ void update_booster_ui()
     // 获取热量数据
     float current_heat = uav_booster_ptr->get_data()->shoot_data.Q_now_no_referee;
     float max_heat = uav_booster_ptr->get_data()->shoot_data.Q_max;
+
+    float distance = uav_booster_ptr->get_data()->data_ctx.distance;
+
+    ui_ptr->draw_float("distance",pyro::ui_operate::ADD, 3, pyro::ui_color::CYAN, 20,
+                3, 400, 500, distance);
 
     // 更新热量进度条
     update_heat_progress_bar(current_heat, max_heat);
@@ -244,6 +248,22 @@ void vt03_control(uint32_t notify_val)
         flush_flag = true;
     }
 
+    if (notify_val & KEY_W)
+    {
+        move_forward();
+    }
+    if (notify_val & KEY_A)
+    {
+        turn_left();
+    }
+    if (notify_val & KEY_S)
+    {
+        move_backward();
+    }
+    if (notify_val & KEY_D)
+    {
+        turn_right();
+    }
 }
 
 extern "C"
@@ -255,6 +275,8 @@ extern "C"
         {
             vTaskDelay(pdMS_TO_TICKS(500));
         }
+
+        led_init();
 
         // 2. 初始清理操作，并绘制静态结构
         ui_ptr->clear_all();
@@ -310,15 +332,10 @@ extern "C"
         btn_broker::subscribe(&vrc.keys.z, btn_event_t::PRESS_DOWN, ui_task_handle, KEY_Z);
 
         //点亮灯珠 来提示飞手
-        btn_broker::subscribe(&vrc.keys.w, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_W_ON);
-        btn_broker::subscribe(&vrc.keys.a, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_A_ON);
-        btn_broker::subscribe(&vrc.keys.s, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_S_ON);
-        btn_broker::subscribe(&vrc.keys.d, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_D_ON);
-
-        btn_broker::subscribe(&vrc.keys.w, btn_event_t::PRESS_UP, ui_task_handle, KEY_W_OFF);
-        btn_broker::subscribe(&vrc.keys.a, btn_event_t::PRESS_UP, ui_task_handle, KEY_A_OFF);
-        btn_broker::subscribe(&vrc.keys.s, btn_event_t::PRESS_UP, ui_task_handle, KEY_S_OFF);
-        btn_broker::subscribe(&vrc.keys.d, btn_event_t::PRESS_UP, ui_task_handle, KEY_D_OFF);
+        btn_broker::subscribe(&vrc.keys.w, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_W);
+        btn_broker::subscribe(&vrc.keys.a, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_A);
+        btn_broker::subscribe(&vrc.keys.s, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_S);
+        btn_broker::subscribe(&vrc.keys.d, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_D);
 
         vTaskDelete(nullptr);
     }
