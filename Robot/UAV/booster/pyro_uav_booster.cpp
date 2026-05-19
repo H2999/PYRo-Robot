@@ -9,8 +9,6 @@ uav_booster_t::uav_booster_t() : module_base_t("quad_booster")
 {
     booster_ctx = {};
     main_fsm.change_state(&passive_state);
-
-    booster_ctx.auto_ctx.fire_enable = 0;
 }
 
 status_t uav_booster_t::_init()
@@ -70,18 +68,13 @@ void uav_booster_t::speed_filter()
 
 void uav_booster_t::_update_feedback()
 {
-    booster_ctx.auto_ctx.fire_enable = booster_ctx.cmd->booster_auto_flag;
-
     booster_ctx.referee_ctx.referee_data = booster_ctx.referee_ctx.referee_drv->get_data();
 
     booster_ctx.shoot_data.now_bullet_speed_mps = booster_ctx.referee_ctx.referee_data.shoot.initial_speed;
-
-    booster_ctx.shoot_data.robot_id    = booster_ctx.referee_ctx.referee_data.robot_status.robot_id;
-    booster_ctx.shoot_data.robot_level = booster_ctx.referee_ctx.referee_data.robot_status.robot_level;
-
+    booster_ctx.shoot_data.robot_id             = booster_ctx.referee_ctx.referee_data.robot_status.robot_id;
+    booster_ctx.shoot_data.robot_level          = booster_ctx.referee_ctx.referee_data.robot_status.robot_level;
     booster_ctx.shoot_data.Q_max                = booster_ctx.referee_ctx.referee_data.robot_status.shooter_barrel_heat_limit;
     booster_ctx.shoot_data.Q_cd                 = booster_ctx.referee_ctx.referee_data.robot_status.shooter_barrel_cooling_value;
-    booster_ctx.shoot_data.Q_now_referee        = booster_ctx.referee_ctx.referee_data.power_heat.shooter_17mm_barrel_heat;
     booster_ctx.shoot_data.launching_frequency  = booster_ctx.referee_ctx.referee_data.shoot.launching_frequency;
 
     // 更新反馈
@@ -92,7 +85,6 @@ void uav_booster_t::_update_feedback()
     // 获取摩擦轮转速
     booster_ctx.data_ctx.current_fric_mps[0] = booster_ctx.cfg.motor_cfg.fric_wheel[0]->get_current_rotate() * FRIC1_RADIUS;
     booster_ctx.data_ctx.current_fric_mps[1] = booster_ctx.cfg.motor_cfg.fric_wheel[1]->get_current_rotate() * FRIC1_RADIUS;
-
     booster_ctx.data_ctx.current_fric_torque = booster_ctx.cfg.motor_cfg.fric_wheel[0]->get_current_torque();
 
     // 获取拨弹盘转速 位置和扭矩
@@ -112,30 +104,11 @@ void uav_booster_t::_update_feedback()
     // 累积到输出轴总角度
     booster_ctx.data_ctx.total_trigger_rad += delta_rotor * reciprocal_reduction_ratio;
 
-    this->heat_calculate();
+    float current_time_ms = dwt_drv_t::get_timeline_ms();
 
-    // 2. 双时区状态观测
-    float current_time = dwt_drv_t::get_timeline_ms();
-    float local_heat      = booster_ctx.shoot_data.Q_now_no_referee;
-    auto referee_heat    = booster_ctx.shoot_data.Q_now_referee;
+    heat_control(current_time_ms);
 
-    // 200ms 时间窗判定
-    if ((current_time - booster_ctx.data_ctx.last_shot_time_ms) > 200.0f)
-    {
-        // 停火间歇期：裁判系统完全结算完毕，直接纠偏本地漂移
-        booster_ctx.shoot_data.Q_now_no_referee = referee_heat;
-    }
-    else
-    {
-        // 激烈交火连发期：取最大值防御裁判系统串口延迟，谁高听谁的
-        booster_ctx.shoot_data.Q_now_no_referee = std::max(local_heat, referee_heat);
-    }
-
-    // 3. 同步刷新剩余热量给UI或其他模块使用
-    booster_ctx.shoot_data.Q_res = booster_ctx.shoot_data.Q_max - booster_ctx.shoot_data.Q_now_no_referee;
-
-    // 状态迭代
-    booster_ctx.data_ctx.last_motor_rad  = now_motor_rad;
+    booster_ctx.data_ctx.last_motor_rad = now_motor_rad;
     booster_ctx.data_ctx.current_trigger_rad = normalize_angle(booster_ctx.data_ctx.total_trigger_rad);
 }
 
@@ -254,101 +227,72 @@ uint8_t uav_booster_t::get_robot_id() const
     return booster_ctx.referee_ctx.referee_data.robot_status.robot_id;
 }
 
-float uav_booster_t::heat_control_referee(const uint8_t level, const float Q_res) const
+void uav_booster_t::heat_control(float current_time_ms)
 {
-    if (level < 1 || level > 10)
+    // 精准计算dt
+    static float last_tick_time = current_time_ms;
+    float dt_s = (current_time_ms - last_tick_time) / 1000.0f;
+    last_tick_time = current_time_ms;
+
+    // 减去冷却
+    if (booster_ctx.shoot_data.Q_cd > 0.0f && booster_ctx.heat_control_ctx.local_heat > 0.0f)
     {
-        return 0.0f;
+        booster_ctx.heat_control_ctx.local_heat -= booster_ctx.shoot_data.Q_cd * dt_s;
+        if (booster_ctx.heat_control_ctx.local_heat < 0.0f)
+        {
+            booster_ctx.heat_control_ctx.local_heat = 0.0f;
+        }
     }
 
-    const heat_control_t *p = &booster_ctx.shoot_data.HeatControlParams[level];
-
-    constexpr float Q_stop = 20.0f;
-    constexpr float Q_low  = 40.0f;
-
-    if (Q_res >= p->Q_start_sloop)
-    {
-        return p->w_max;
-    }
-    else if (Q_res >= Q_low)
-    {
-        const float range = p->Q_start_sloop - Q_low;
-
-        float t = (Q_res - Q_low) / range;
-        return p->w_min + t * (p->w_max - p->w_min);
-    }
-    else if (Q_res >= Q_stop)
-    {
-        return p->w_min;
-    }
-    else
-    {
-        return 0.0f;
-    }
-}
-
-float uav_booster_t::heat_control_no_referee(uint8_t level, float Q_res) const
-{
-    if (level < 1 || level > 10)
-    {
-        return 0.0f;
-    }
-
-    const heat_control_t *p = &booster_ctx.shoot_data.HeatControlParams[level];
-
-    constexpr float Q_stop = 30.0f;
-    constexpr float Q_low  = 50.0f;
-
-    if (Q_res >= booster_ctx.shoot_data.Q_max * 0.75f)
-    {
-        return p->w_max;
-    }
-    else if (Q_res >= Q_low)
-    {
-        const float range = p->Q_start_sloop - Q_low;
-
-        float t = (Q_res - Q_low) / range;
-        return p->w_min + t * (p->w_max - p->w_min);
-    }
-    else if (Q_res >= Q_stop)
-    {
-        return p->w_min;
-    }
-    else
-    {
-        return 0.0f;
-    }
-}
-
-float uav_booster_t::heat_calculate()
-{
-    // 计算这一帧走过的绝对角度增量
+    // 通过拨弹盘角度变化来计算热量
     float delta_rad = booster_ctx.data_ctx.total_trigger_rad - booster_ctx.data_ctx.last_trigger_rad;
-    // 只累加正向转动的增量
-    if (delta_rad > 0.0f)
+    if (delta_rad > 0.01f) // 只累加正向转动的增量
     {
         booster_ctx.data_ctx.accumulated_rad += delta_rad;
     }
-    // 每当累加够一发（PI/4）的弧度
-    constexpr float RAD_PER_SHOT = PI / 4.0f;
+
+    // 触发物理发射判定
     if (booster_ctx.data_ctx.accumulated_rad >= RAD_PER_SHOT)
     {
-        booster_ctx.shoot_data.Q_now_no_referee += _17mm_ball_heat;
-        booster_ctx.data_ctx.accumulated_rad -= RAD_PER_SHOT;  // 减去一发，不是清零
+        booster_ctx.data_ctx.accumulated_rad -= RAD_PER_SHOT;
 
-        // 发弹瞬间刷新时间戳，进入200ms延迟防覆盖保护
-        booster_ctx.data_ctx.last_shot_time_ms = dwt_drv_t::get_timeline_ms();
+        // 打出一发，本地热量直接 +10 点
+        booster_ctx.heat_control_ctx.local_heat += 10.0f;
+
+        // 只要在射击，就刷新最后物理开火时间戳
+        booster_ctx.heat_control_ctx.last_shot_time_ms = current_time_ms;
     }
-    if (booster_ctx.shoot_data.Q_now_no_referee > 0.0f)
+
+    // 200ms 时间窗状态观测同步 超过200ms没开火就通过裁判系统复位一下 防止出问题导致热量不准确
+    booster_ctx.shoot_data.Q_now_referee = booster_ctx.referee_ctx.referee_data.power_heat.shooter_17mm_barrel_heat;
+    float ref_heat = booster_ctx.shoot_data.Q_now_referee;
+
+    float time_since_last_shot = current_time_ms - booster_ctx.heat_control_ctx.last_shot_time_ms;
+
+    if (time_since_last_shot > 200)
     {
-        booster_ctx.shoot_data.Q_now_no_referee -= booster_ctx.shoot_data.Q_cd * 0.001f;
+        // 超过 200ms，直接覆写纠正本地累积漂移误差
+        booster_ctx.heat_control_ctx.local_heat = ref_heat;
     }
-    // 限幅防超限
-    if (booster_ctx.shoot_data.Q_now_no_referee < 0.0f)
+    else
     {
-        booster_ctx.shoot_data.Q_now_no_referee = 0.0f;
+        // 正在高频交火连发，或者自瞄信号跳变停射未满 200ms，强行用本地高精度预测顶住
+        booster_ctx.heat_control_ctx.local_heat = std::max(booster_ctx.heat_control_ctx.local_heat, ref_heat);
     }
-    return booster_ctx.shoot_data.Q_now_no_referee;
+
+    // 4. 将最终安全融合后的 local_heat 转换为状态机可用的可打弹数
+    // 预留两发子弹，防止超频爆热量
+    float safe_q_res = booster_ctx.shoot_data.Q_max - booster_ctx.heat_control_ctx.local_heat - 20.0f;
+
+    if (safe_q_res <= 0.0f)
+    {
+        booster_ctx.heat_control_ctx.allow_bullet_count = 0;
+    }
+    else
+    {
+        booster_ctx.heat_control_ctx.allow_bullet_count = static_cast<int16_t>(safe_q_res / 10.0f);
+    }
+
 }
 
 uav_booster_t::booster_ctx_t* uav_booster_t::get_data()

@@ -3,7 +3,7 @@ using namespace pyro;
 
 void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::enter(uav_booster_t *owner)
 {
-
+    owner->booster_ctx.heat_control_ctx.continue_fresh_referee = true;
 }
 
 void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::execute(uav_booster_t *owner)
@@ -12,9 +12,6 @@ void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::execute(uav_booster_t
     {
         const float Q_now = owner->booster_ctx.shoot_data.Q_now_no_referee;
 
-        // const float Q_res = owner->booster_ctx.shoot_data.Q_res;
-
-        // owner->booster_ctx.data_ctx.target_trigger_radps = owner->heat_control_no_referee(1, Q_res);
         owner->booster_ctx.data_ctx.target_trigger_radps = 8.0f;
     }
     else
@@ -29,5 +26,5 @@ void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::execute(uav_booster_t
 }
 void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::exit(uav_booster_t *owner)
 {
-
+    owner->booster_ctx.heat_control_ctx.continue_fresh_referee = false;
 }

@@ -22,11 +22,12 @@ struct uav_booster_cmd_t final : public cmd_base_t
     float target_trigger_radps;
     bool single_mode;
     bool continue_mode;
+    bool auto_mode;
     uint8_t booster_auto_flag;
 
     uav_booster_cmd_t()
         :fric_enable(false),target_trigger_radps(0),
-        single_mode(false), continue_mode(false),booster_auto_flag(0)
+        single_mode(false), continue_mode(false),auto_mode(false),booster_auto_flag(0)
     {
     }
 };
@@ -93,11 +94,9 @@ private:
     void speed_control();
     void speed_filter();
     void send_trigger_command() const;
-    // void apply_heat_limit_strategy(uint8_t level,float Q_res);
-    //基于裁判系统的热量控制
-    [[nodiscard]] float heat_control_referee(uint8_t level, float Q_res) const;
-    [[nodiscard]] float heat_control_no_referee(uint8_t level, float Q_res) const;
-    //无裁判系统的热量控
+
+    //预测校准热量
+    void heat_control(float current_time_ms);
 
     static float normalize_angle(float angle);
 
@@ -132,18 +131,17 @@ private:
         float distance{};
     };
 
-    struct booster_auto_ctx_t
+    struct heat_control_t
     {
-        uint8_t fire_enable;
-        float avg_speed;
-    };
+        bool single_fresh_referee{false};
+        bool continue_fresh_referee{false};
+        bool auto_fresh_referee{false};
 
-    struct heat_control_t{
-        float Q_max;         // 热量上限
-        float Q_start_sloop;         // 热量上限
-        float cooling_rate; // 冷却速率
-        float w_min;        // 与冷却速率持平的弹速
-        float w_max;        // 最大转速
+        uint16_t now_bullet_count{};
+        uint16_t allow_bullet_count{};
+
+        float local_heat{};
+        float last_shot_time_ms{};
     };
 
     struct shoot_delay_ctx_t
@@ -189,30 +187,6 @@ private:
         //     {200, 120.0f, 120, 9.5, 15.8}
         // };
 
-        heat_control_t HeatControlParams[11]
-        {
-            {0},
-            // 等级1: Q_max 100, 80开始减速，50降到w_min
-            {100, 80.0f, 20, 3.0, 7.5},
-            // 等级2: Q_max 110, 80开始
-            {110, 80.0f, 30, 3.5, 8.0},
-            // 等级3: Q_max 120, 80开始
-            {120, 80.0f , 40, 3.5, 8.5},
-            // 等级4: Q_max 130, 90开始
-            {130, 90.0f, 50, 4.0, 10.2},
-            // 等级5: Q_max 140
-            {140, 100.0f, 60, 4.0, 10.6},
-            // 等级6: Q_max 150, 100开始
-            {150, 100.0f, 70,5.0, 11.5},
-            // 等级7: Q_max 160, 110开始
-            {160, 110.0f, 80, 5.0, 11.8},
-            // 等级8: Q_max 170, 110开始
-            {170, 110.0f, 90, 6.0, 12.0},
-            // 等级9: Q_max 180, 120开始
-            {180, 120.0f, 100, 6.0, 12.5},
-            // 等级10: Q_max 200, 120开始
-            {200, 120.0f, 120, 6.0, 13.0}
-        };
         //用来弹速闭环
         float last_bullet_speed_mps{0};
         float now_bullet_speed_mps{0};
@@ -228,6 +202,10 @@ private:
         float Q_now_referee{};
         float Q_now_no_referee{};
         float Q_res{};
+
+        bool is_shooting_locked{};
+        int16_t bullet_quota{};
+        int16_t bullets_shot_in_burst{};
     };
 
     struct referee_ctx_t
@@ -247,11 +225,11 @@ private:
         uav_booster_cfg_t cfg;
         data_ctx_t data_ctx;
         uav_booster_cmd_t *cmd{};
-        booster_auto_ctx_t auto_ctx{};
         shoot_data_t shoot_data{};
         referee_ctx_t referee_ctx{};
         IIR_Filter_ctx_t IIR_Filter_ctx[2]{};
         shoot_delay_ctx_t shoot_delay_ctx{};
+        heat_control_t heat_control_ctx{};
     };
 
     booster_ctx_t booster_ctx;

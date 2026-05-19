@@ -188,65 +188,9 @@ void booster_vt03rcmd(uint32_t notify_val)
         // 收到弹起信号
         if (notify_val & MOUSE_EXIT_AUTO)  mouse_aiming = false;
 
+        uav_booster_cmd_ptr->auto_mode = mouse_aiming;
+
         //把自瞄挡放这 先响应自瞄挡
-        /*
-        // ==================== 2. 核心状态机判定 ====================
-        // 判断当前是否处于有效的“可开火控制状态”（拨码向下 OR 鼠标右键长按自瞄）
-//         if (sw_pos_t::DOWN == vrc.switches.gear.current_pos || mouse_aiming)
-//         {
-//             // 如果摩擦轮开了，才允许计算开火逻辑
-//             if (uav_booster_cmd_ptr->fric_enable)
-//             {
-//                 // 优先响应手动单发/连发通知（用 else if 隔开，防止被 rx_data.fire 覆盖）
-//                 if (notify_val & VT03_TRIGGER_SINGLE || notify_val & MOUSE_SINGLE)
-//                 {
-//                     uav_booster_cmd_ptr->trigger_enable   = true;
-//                     uav_booster_cmd_ptr->single_mode      = true;
-//                     uav_booster_cmd_ptr->continue_mode    = false;
-//                     uav_booster_cmd_ptr->booster_auto_flag = false; // 手动优先
-//                 }
-//                 else if (notify_val & VT03_TRIGGER_CONTINUE || notify_val & MOUSE_CONTINUE)
-//                 {
-//                     uav_booster_cmd_ptr->trigger_enable   = true;
-//                     uav_booster_cmd_ptr->continue_mode    = true;
-//                     uav_booster_cmd_ptr->single_mode      = false;
-//                     uav_booster_cmd_ptr->booster_auto_flag = false; // 手动优先
-//                 }
-//                 // 如果没有手动开火通知，则看视觉自瞄是否下发了开火指令
-//                 else
-//                 {
-//                     if (rx_data.fire)
-//                     {
-//                         uav_booster_cmd_ptr->trigger_enable    = true;
-//                         uav_booster_cmd_ptr->booster_auto_flag = true;
-//                     }
-//                     else
-//                     {
-//                         // 既没手动打弹，自瞄也没识别到目标，停转拨弹盘
-//                         uav_booster_cmd_ptr->trigger_enable    = false;
-//                         uav_booster_cmd_ptr->booster_auto_flag = false;
-//                     }
-//                 }
-//             }
-//             else
-//             {
-//                 // 摩擦轮关闭状态：虽然在自瞄状态，但强行关闭拨弹盘
-//                 uav_booster_cmd_ptr->trigger_enable    = false;
-//                 uav_booster_cmd_ptr->single_mode       = false;
-//                 uav_booster_cmd_ptr->continue_mode     = false;
-//                 uav_booster_cmd_ptr->booster_auto_flag = false;
-//             }
-//         }
-//         else
-//         {
-//             uav_booster_cmd_ptr->trigger_enable    = false;
-//             uav_booster_cmd_ptr->single_mode       = false;
-//             uav_booster_cmd_ptr->continue_mode     = false;
-//             uav_booster_cmd_ptr->booster_auto_flag = false;
-//
-//             uav_booster_cmd_ptr->fric_enable       = false;
-//         }
-*/
         if (sw_pos_t::DOWN == vrc.switches.gear.current_pos || mouse_aiming)
         {
             if (notify_val & VT03_FRIC_TOGGLE || notify_val & KEY_FRIC_TOGGLE)

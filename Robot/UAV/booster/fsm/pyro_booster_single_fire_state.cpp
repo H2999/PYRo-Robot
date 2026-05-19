@@ -5,6 +5,8 @@ using namespace pyro;
 
 void uav_booster_t::fsm_active_t::shoot_single_bullet_t::enter(uav_booster_t *owner)
 {
+    owner->booster_ctx.heat_control_ctx.single_fresh_referee = true;
+
     // 进入单发时，重新使能拨弹电机，并清除触发标志位
     owner->booster_ctx.cmd->single_mode = false;
 
@@ -40,5 +42,5 @@ void uav_booster_t::fsm_active_t::shoot_single_bullet_t::execute(uav_booster_t *
 
 void uav_booster_t::fsm_active_t::shoot_single_bullet_t::exit(uav_booster_t *owner)
 {
-
+    owner->booster_ctx.heat_control_ctx.single_fresh_referee = false;
 }
