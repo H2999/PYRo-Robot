@@ -23,10 +23,10 @@ constexpr uint32_t VT03_TRIGGER_CONTINUE               = (1 << 2);
 constexpr uint32_t VT03_TRIGGER_DISABLE                = (1 << 3);
 
 constexpr uint32_t MOUSE_SINGLE                        = (1 << 7);
-constexpr uint32_t MOUSE_CONTINUE                      = (1 << 8);
+constexpr uint32_t MOUSE_ENTER_CONTINUE                = (1 << 8);
 constexpr uint32_t MOUSE_DISABLE_TRIGGER               = (1 << 9);
 constexpr uint32_t MOUSE_ENTER_AUTO                    = (1 << 10);
-constexpr uint32_t MOUSE_EXIT_AUTO                    = (1 << 11);
+constexpr uint32_t MOUSE_EXIT_AUTO                     = (1 << 11);
 constexpr uint32_t MOUSE_DISABLE_FRIC                  = (1 << 12);
 constexpr uint32_t KEY_FRIC_TOGGLE                     = (1 << 13);
 
@@ -183,58 +183,63 @@ void booster_vt03rcmd(uint32_t notify_val)
 
         //存储鼠标状态
         static bool mouse_aiming = false;
-        // 收到长按开始信号
+        static bool mouse_shooting = false;
+
         if (notify_val & MOUSE_ENTER_AUTO) mouse_aiming = true;
-        // 收到弹起信号
         if (notify_val & MOUSE_EXIT_AUTO)  mouse_aiming = false;
 
+        if (notify_val & MOUSE_ENTER_CONTINUE)    mouse_shooting = true;
+        if (notify_val & MOUSE_DISABLE_TRIGGER)   mouse_shooting = false;
+
+        if (notify_val & VT03_FRIC_TOGGLE || notify_val & KEY_FRIC_TOGGLE)
+        {
+            uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
+        }
+
         uav_booster_cmd_ptr->auto_mode = mouse_aiming;
+
+        if (!uav_booster_cmd_ptr->fric_enable)
+        {
+            uav_booster_cmd_ptr->trigger_enable    = false;
+            uav_booster_cmd_ptr->single_mode       = false;
+            uav_booster_cmd_ptr->continue_mode     = false;
+            uav_booster_cmd_ptr->booster_auto_flag = false;
+            return;
+        }
 
         //把自瞄挡放这 先响应自瞄挡
         if (sw_pos_t::DOWN == vrc.switches.gear.current_pos || mouse_aiming)
         {
-            if (notify_val & VT03_FRIC_TOGGLE || notify_val & KEY_FRIC_TOGGLE)
+            if (rx_data.fire && mouse_shooting)
             {
-                uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
-            }
-
-            // 如果摩擦轮开了，才允许计算开火逻辑
-            if (uav_booster_cmd_ptr->fric_enable)
-            {
-                // 2. 核心联动：必须自瞄判定可开火（fire） 并且 满足人手长按
-                // if (rx_data.fire && notify_val & MOUSE_CONTINUE)
-                if (rx_data.fire)
-                {
-                    uav_booster_cmd_ptr->trigger_enable    = true;
-                    uav_booster_cmd_ptr->continue_mode     = false;  // 连续开火
-                    uav_booster_cmd_ptr->single_mode       = false;
-                    uav_booster_cmd_ptr->booster_auto_flag = true;  // 成功进入自瞄开火状态
-                }
-                // 3. 纯手动单发兜底
-                else if (notify_val & VT03_TRIGGER_SINGLE || notify_val & MOUSE_SINGLE)
-                {
-                    uav_booster_cmd_ptr->trigger_enable    = true;
-                    uav_booster_cmd_ptr->single_mode       = true;
-                    uav_booster_cmd_ptr->continue_mode     = false;
-                    uav_booster_cmd_ptr->booster_auto_flag = false; // 纯手动单发
-                }
-                // 4. 条件不满足时的安全锁：自瞄丢目标了，或者手松开了，立刻退出自瞄开火
-                else
-                {
-                    uav_booster_cmd_ptr->trigger_enable    = false;
-                    uav_booster_cmd_ptr->single_mode       = false;
-                    uav_booster_cmd_ptr->continue_mode     = false;
-                    uav_booster_cmd_ptr->booster_auto_flag = false; // 退出自瞄开火
-                }
-            }
-            else
-            {
-                // 摩擦轮关闭状态：强行关闭拨弹盘
-                uav_booster_cmd_ptr->trigger_enable    = false;
+                uav_booster_cmd_ptr->trigger_enable    = true;
+                uav_booster_cmd_ptr->continue_mode     = false;
                 uav_booster_cmd_ptr->single_mode       = false;
+                uav_booster_cmd_ptr->booster_auto_flag = true;
+            }
+            // 防止自瞄断开时完全打不出子弹）
+            else if (mouse_shooting)
+            {
+                uav_booster_cmd_ptr->trigger_enable    = true;
+                uav_booster_cmd_ptr->continue_mode     = true;
+                uav_booster_cmd_ptr->single_mode       = false;
+                uav_booster_cmd_ptr->booster_auto_flag = false;
+            }
+            // 单发事件触发（处理点击鼠标/物理单发键）
+            else if ((notify_val & VT03_TRIGGER_SINGLE) || (notify_val & MOUSE_SINGLE))
+            {
+                uav_booster_cmd_ptr->trigger_enable    = true;
+                uav_booster_cmd_ptr->single_mode       = true; // 注意：底层执行完单发后需自行清除该状态
                 uav_booster_cmd_ptr->continue_mode     = false;
                 uav_booster_cmd_ptr->booster_auto_flag = false;
-                uav_booster_cmd_ptr->fric_enable       = false;
+            }
+            // 没有任何按键和射击需求 -> 清除状态
+            else
+            {
+                uav_booster_cmd_ptr->trigger_enable    = false;
+                // 不要在这里盲目清空 single_mode，允许单发状态维持到被发射子弹消耗掉
+                uav_booster_cmd_ptr->continue_mode     = false;
+                uav_booster_cmd_ptr->booster_auto_flag = false;
             }
         }
 
@@ -242,33 +247,29 @@ void booster_vt03rcmd(uint32_t notify_val)
         {
             uav_booster_cmd_ptr->booster_auto_flag = false;
 
-            if (notify_val & VT03_FRIC_TOGGLE || notify_val & KEY_FRIC_TOGGLE)
-            {
-                uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
-            }
-
-            if (notify_val & VT03_TRIGGER_SINGLE || notify_val & MOUSE_SINGLE)
+            if ((notify_val & VT03_TRIGGER_SINGLE) || (notify_val & MOUSE_SINGLE))
             {
                 uav_booster_cmd_ptr->trigger_enable = true;
-                uav_booster_cmd_ptr->single_mode = true;
-            }
-
-            if (notify_val & VT03_TRIGGER_CONTINUE || notify_val & MOUSE_CONTINUE)
-            {
-                uav_booster_cmd_ptr->trigger_enable = true;
-                uav_booster_cmd_ptr->continue_mode = true;
-                // uav_booster_cmd_ptr->booster_auto_flag = true;
-            }
-
-            if (notify_val & VT03_TRIGGER_DISABLE || notify_val & MOUSE_DISABLE_TRIGGER)
-            {
-                uav_booster_cmd_ptr->trigger_enable = false;
-                uav_booster_cmd_ptr->single_mode = false;
+                uav_booster_cmd_ptr->single_mode   = true;
                 uav_booster_cmd_ptr->continue_mode = false;
-                // uav_booster_cmd_ptr->booster_auto_flag = false;
+            }
+
+                if (notify_val & VT03_TRIGGER_CONTINUE || mouse_shooting)
+                {
+                    uav_booster_cmd_ptr->trigger_enable = true;
+                    uav_booster_cmd_ptr->continue_mode = true;
+                    // uav_booster_cmd_ptr->booster_auto_flag = true;
+                }
+
+                if (notify_val & VT03_TRIGGER_DISABLE || notify_val & MOUSE_DISABLE_TRIGGER)
+                {
+                    uav_booster_cmd_ptr->trigger_enable = false;
+                    uav_booster_cmd_ptr->single_mode = false;
+                    uav_booster_cmd_ptr->continue_mode = false;
+                    // uav_booster_cmd_ptr->booster_auto_flag = false;
+                }
             }
         }
-    }
 
     void uav_booster_thread(void *argument)
     {
@@ -316,7 +317,7 @@ void booster_vt03rcmd(uint32_t notify_val)
         //mouse
         btn_broker::subscribe(&vrc.keys.q, btn_event_t::PRESS_DOWN, booster_task_handle, KEY_FRIC_TOGGLE);
         btn_broker::subscribe(&vrc.buttons.press_l, btn_event_t::PRESS_DOWN,booster_task_handle , MOUSE_SINGLE);
-        btn_broker::subscribe(&vrc.buttons.press_l, btn_event_t::PRESS_DOWN,booster_task_handle , MOUSE_CONTINUE);
+        btn_broker::subscribe(&vrc.buttons.press_l, btn_event_t::LONG_PRESS_START,booster_task_handle , MOUSE_ENTER_CONTINUE);
         btn_broker::subscribe(&vrc.buttons.press_l, btn_event_t::PRESS_UP,booster_task_handle , MOUSE_DISABLE_TRIGGER);
         btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::LONG_PRESS_START,booster_task_handle , MOUSE_ENTER_AUTO);
         btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::PRESS_UP,booster_task_handle , MOUSE_EXIT_AUTO);
@@ -325,4 +326,4 @@ void booster_vt03rcmd(uint32_t notify_val)
 
         vTaskDelete(nullptr);
     }
-}
+    }

@@ -10,9 +10,16 @@ void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::execute(uav_booster_t
 {
     if (owner->booster_ctx.cmd->continue_mode)
     {
-        const float Q_now = owner->booster_ctx.shoot_data.Q_now_no_referee;
-
-        owner->booster_ctx.data_ctx.target_trigger_radps = 8.0f;
+        if (owner->booster_ctx.heat_control_ctx.allow_bullet_count > 0)
+        {
+            owner->booster_ctx.data_ctx.target_trigger_radps = 10.0f;
+        }
+        else
+        {
+            // 热量满了 急停
+            owner->booster_ctx.data_ctx.target_trigger_radps = 0.0f;
+            // request_switch(&owner->passive_state);
+        }
     }
     else
     {

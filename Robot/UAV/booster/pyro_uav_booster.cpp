@@ -99,8 +99,6 @@ void uav_booster_t::_update_feedback()
     if (delta_rotor > PI)          delta_rotor -= 2.0f * PI;
     else if (delta_rotor < -PI)    delta_rotor += 2.0f * PI;
 
-    // 锁存上一帧绝对角度
-    booster_ctx.data_ctx.last_trigger_rad = booster_ctx.data_ctx.total_trigger_rad;
     // 累积到输出轴总角度
     booster_ctx.data_ctx.total_trigger_rad += delta_rotor * reciprocal_reduction_ratio;
 
@@ -109,6 +107,7 @@ void uav_booster_t::_update_feedback()
     heat_control(current_time_ms);
 
     booster_ctx.data_ctx.last_motor_rad = now_motor_rad;
+    booster_ctx.data_ctx.last_trigger_rad = booster_ctx.data_ctx.total_trigger_rad;
     booster_ctx.data_ctx.current_trigger_rad = normalize_angle(booster_ctx.data_ctx.total_trigger_rad);
 }
 
@@ -282,7 +281,7 @@ void uav_booster_t::heat_control(float current_time_ms)
 
     // 4. 将最终安全融合后的 local_heat 转换为状态机可用的可打弹数
     // 预留两发子弹，防止超频爆热量
-    float safe_q_res = booster_ctx.shoot_data.Q_max - booster_ctx.heat_control_ctx.local_heat - 20.0f;
+    float safe_q_res = booster_ctx.shoot_data.Q_max - booster_ctx.heat_control_ctx.local_heat - 24.0f;
 
     if (safe_q_res <= 0.0f)
     {
@@ -292,7 +291,6 @@ void uav_booster_t::heat_control(float current_time_ms)
     {
         booster_ctx.heat_control_ctx.allow_bullet_count = static_cast<int16_t>(safe_q_res / 10.0f);
     }
-
 }
 
 uav_booster_t::booster_ctx_t* uav_booster_t::get_data()

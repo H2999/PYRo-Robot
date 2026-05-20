@@ -33,22 +33,21 @@ static bool heat_bar_initialized = false;
 //静态ui绘制
 void ui_draw_static()
 {
-    // 1. 绘制矩形 (RECT)
-    // 参数：名字, 操作, 图层, 颜色, 线宽, 起点X, 起点Y, 终点X, 终点Y
-
     ui_ptr->
+    //自瞄框范围
      draw_rect("R01", ui_operate::ADD, 1, ui_color::GREEN, 3,
-                       815, 455, 1105, 620)
-     //摩擦轮速度显示
+                       940, 520, 980, 560)
+     //两轴角度
      .draw_line("YAW_ANGLE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                             1520, 580, 1820,580)
+                             360, 620, 1820,580)
      .draw_line("PITCH_ANGLE", ui_operate::ADD, 2, ui_color::CYAN, 4,
-                             1520, 490, 1820,490)
+                             360, 540, 1820,490)
+     //摩擦轮、拨弹盘是否开启显示
      .draw_circle("F1", ui_operate::ADD, 5, ui_color::YELLOW, 4,
                        1700, 750, 30)
      .draw_circle("F2", ui_operate::ADD, 6, ui_color::YELLOW, 4,
                        1580, 750, 30)
-    .draw_circle("T1", ui_operate::ADD, 6, ui_color::MAGENTA, 4,
+     .draw_circle("T1", ui_operate::ADD, 6, ui_color::MAGENTA, 4,
                        1820, 750, 30);
 
      ui_ptr->flush(); // 拼包发送
@@ -56,39 +55,49 @@ void ui_draw_static()
     // 1. 绘制静态文本标签 (注意名字不能重复)
     //两轴角度
     ui_ptr->draw_string("ST1", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
-                        20, 4, 1540, 620, " YAW :");
+                        20, 4, 380, 620, " YAW :");
     ui_ptr->draw_string("ST2", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
-                        20, 4, 1540, 540, "PITCH:");
-
+                        20, 4, 380, 540, "PITCH:");
+    //距离
     ui_ptr->draw_string("ST3",pyro::ui_operate::ADD,4,pyro::ui_color::GREEN,
-        20,4,300,500,"DIS");
+        20,4,1540,540," DIS :");
+    //允许发弹量
+    ui_ptr->draw_string("ST4",pyro::ui_operate::ADD,4,pyro::ui_color::GREEN,
+        20,4,1540,540,"TOTAL:");
+    ui_ptr->draw_string("ST5",pyro::ui_operate::ADD,4,pyro::ui_color::GREEN,
+        20,4,1540,500,"REMAIN:");
     //热量数据
-    ui_ptr->draw_string("ST5", pyro::ui_operate::ADD, 4, pyro::ui_color::GREEN,
+    ui_ptr->draw_string("ST6", pyro::ui_operate::ADD, 4, pyro::ui_color::GREEN,
                        20, 4, 750, 315, "HEAT:");
-    ui_ptr->draw_string("ST6", pyro::ui_operate::ADD, 4, pyro::ui_color::YELLOW,
+    ui_ptr->draw_string("ST7", pyro::ui_operate::ADD, 4, pyro::ui_color::YELLOW,
                         20, 4, 980, 315, "RES:");
     ui_ptr->flush();
 
     // 2. 为动态数值提前进行 ADD 占位，赋予初始值，方便后续直接 MODIFY
-    ui_ptr
-        ->draw_float("DF3", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
-                     2, 1670, 620, 0.0f)//yaw
-        .draw_float("DF4", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
-                    2, 1670, 540, 0.0f)//pitch
-        .draw_float("heat_max", pyro::ui_operate::ADD, 5, pyro::ui_color::ALLY, 20,
-                3, 850, 315, uav_booster_ptr->get_data()->shoot_data.Q_max)
-        .draw_float("heat_res", pyro::ui_operate::ADD, 1, pyro::ui_color::GREEN, 20,
-                3, 1065, 315, 0.0f)
-        .draw_float("distance",pyro::ui_operate::ADD, 3, pyro::ui_color::CYAN, 20,
-                3, 400, 500, 0.0f);
+    ui_ptr->draw_float("DF3", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
+                     2, 510, 620, 0.0f)//yaw
+            .draw_float("DF4", pyro::ui_operate::ADD, 4, pyro::ui_color::WHITE, 20,
+                    2, 510, 540, 0.0f)//pitch
+            .draw_float("heat_max", pyro::ui_operate::ADD, 5, pyro::ui_color::ALLY, 20,
+                3, 850, 315, uav_booster_ptr->get_data()->shoot_data.Q_max)//最大热量
+            .draw_float("heat_res", pyro::ui_operate::ADD, 1, pyro::ui_color::GREEN, 20,
+                3, 1065, 315, 0.0f)//剩余热量
+            //距离
+            .draw_float("distance",pyro::ui_operate::ADD, 3, pyro::ui_color::CYAN, 20,
+                3, 1670, 620, 0.0f)
+            //允许发弹量
+            .draw_float("total",pyro::ui_operate::ADD, 3, pyro::ui_color::PINK, 20,
+                3, 1670, 540, 0.0f)//热量限制下允许的发弹量
+            .draw_float("remain",pyro::ui_operate::ADD, 3, pyro::ui_color::PINK, 20,
+                3, 1670, 500, 0.0f);
 
     ui_ptr->draw_circle("F3", ui_operate::ADD, 5, ui_color::YELLOW, 1,
-                       1700, 750, 30)
-        .draw_circle("F4", ui_operate::ADD, 6, ui_color::YELLOW, 1,
+                       1700, 750, 30)//F3、F4表示两个摩擦轮是否开启
+            .draw_circle("F4", ui_operate::ADD, 6, ui_color::YELLOW, 1,
                        1580, 750, 30)
-        .draw_circle("T1", ui_operate::ADD, 6, ui_color::MAGENTA, 1,
-                       1820, 750, 30)
-        .draw_rect("H1", ui_operate::ADD, 1, ui_color::WHITE, 3,
+            .draw_circle("T1", ui_operate::ADD, 6, ui_color::MAGENTA, 1,
+                       1820, 750, 30)//拨弹盘是否开启
+            .draw_rect("H1", ui_operate::ADD, 1, ui_color::WHITE, 3,
             740, 300, 1100, 280);//热量条
 
     ui_ptr->flush(); // 拼包发送
@@ -179,8 +188,15 @@ void update_booster_ui()
 
     float distance = uav_booster_ptr->get_data()->data_ctx.distance;
 
-    ui_ptr->draw_float("distance",pyro::ui_operate::ADD, 3, pyro::ui_color::CYAN, 20,
-                3, 400, 500, distance);
+    float total = uav_booster_ptr->get_data()->heat_control_ctx.allow_bullet_count;
+    float remain = uav_booster_ptr->get_data()->heat_control_ctx.now_bullet_count;
+
+    ui_ptr->draw_float("distance",pyro::ui_operate::MODIFY, 3, pyro::ui_color::CYAN, 20,
+                3, 1670, 620, distance);
+    ui_ptr->draw_float("total",pyro::ui_operate::MODIFY, 3, pyro::ui_color::CYAN, 20,
+                3, 1670, 540, total);
+    ui_ptr->draw_float("remain",pyro::ui_operate::MODIFY, 3, pyro::ui_color::CYAN, 20,
+                3, 1670, 500, remain);
 
     // 更新热量进度条
     update_heat_progress_bar(current_heat, max_heat);
