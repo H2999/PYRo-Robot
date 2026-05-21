@@ -137,7 +137,6 @@ private:
         bool continue_fresh_referee{false};
         bool auto_fresh_referee{false};
 
-        int16_t now_bullet_count{};
         int16_t allow_bullet_count{};
 
         float local_heat{};

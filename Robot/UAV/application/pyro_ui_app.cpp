@@ -24,11 +24,28 @@ static uint32_t KEY_S                              = (1 << 5);
 static uint32_t KEY_D                              = (1 << 6);
 
 static TaskHandle_t ui_task_handle                  = nullptr;
-
-static float fric1_mps                              = 0.0f;
-static float fric2_mps                              = 0.0f;
 static bool flush_flag                              = true;
-static bool heat_bar_initialized = false;
+
+// 定义弹道测试数据点
+struct BallisticPoint {
+    float distance;     // 距离
+    int32_t bias_x;     // 当中心对准目标时，实际落点偏离中心的X像素
+    int32_t bias_y;     // 当中心对准目标时，实际落点偏离中心的Y像素
+};
+
+// ==================== 测试数据表 ====================
+// 比如8米时，实际落点在 偏左20、偏下30
+// 那么反向补偿：叉应该画在 偏右20（+20）、偏上30（-30，假设屏幕y向下为正）
+static constexpr BallisticPoint ballistic_table[] = {
+    {8.0f,  20, -30},     // 8米 (根据你的例子：实际落点偏左偏下，所以UI往右往上画)
+    {10.0f, 25, -45},     // 10米
+    {12.0f, 30, -50},
+    {13.0f, 35, -60},
+    {14.0f, 40, -65},
+    {15.0f, 45, -70},
+    {16.0f, 40, -70}
+};
+static constexpr size_t TABLE_SIZE = sizeof(ballistic_table) / sizeof(BallisticPoint);
 
 //静态ui绘制
 void ui_draw_static()
@@ -36,12 +53,7 @@ void ui_draw_static()
     ui_ptr->
     //自瞄框范围
      draw_rect("R01", ui_operate::ADD, 1, ui_color::GREEN, 3,
-                       940, 520, 980, 560)
-     //两轴角度
-     .draw_line("YAW_ANGLE", ui_operate::ADD, 1, ui_color::YELLOW, 4,
-                             360, 620, 1820,580)
-     .draw_line("PITCH_ANGLE", ui_operate::ADD, 2, ui_color::CYAN, 4,
-                             360, 540, 1820,490)
+                       9940, 520, 980, 560)
      //摩擦轮、拨弹盘是否开启显示
      .draw_circle("F1", ui_operate::ADD, 5, ui_color::YELLOW, 4,
                        1700, 750, 30)
@@ -55,17 +67,15 @@ void ui_draw_static()
     // 1. 绘制静态文本标签 (注意名字不能重复)
     //两轴角度
     ui_ptr->draw_string("ST1", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
-                        20, 4, 380, 620, " YAW :");
+                        20, 4, 300, 700, " YAW :");
     ui_ptr->draw_string("ST2", pyro::ui_operate::ADD, 3, pyro::ui_color::PINK,
-                        20, 4, 380, 540, "PITCH:");
+                        20, 4, 300, 620, "PITCH:");
     //距离
     ui_ptr->draw_string("ST3",pyro::ui_operate::ADD,4,pyro::ui_color::GREEN,
-        20,4,1540,540," DIS :");
+        20,4,1540,620," DIS :");
     //允许发弹量
     ui_ptr->draw_string("ST4",pyro::ui_operate::ADD,4,pyro::ui_color::GREEN,
-        20,4,1540,540,"TOTAL:");
-    ui_ptr->draw_string("ST5",pyro::ui_operate::ADD,4,pyro::ui_color::GREEN,
-        20,4,1540,500,"REMAIN:");
+        20,4,1540,540,"BULLET:");
     //热量数据
     ui_ptr->draw_string("ST6", pyro::ui_operate::ADD, 4, pyro::ui_color::GREEN,
                        20, 4, 750, 315, "HEAT:");
@@ -83,13 +93,11 @@ void ui_draw_static()
             .draw_float("heat_res", pyro::ui_operate::ADD, 1, pyro::ui_color::GREEN, 20,
                 3, 1065, 315, 0.0f)//剩余热量
             //距离
-            .draw_float("distance",pyro::ui_operate::ADD, 3, pyro::ui_color::CYAN, 20,
+            .draw_float("distance",pyro::ui_operate::ADD, 4, pyro::ui_color::CYAN, 20,
                 3, 1670, 620, 0.0f)
             //允许发弹量
-            .draw_float("total",pyro::ui_operate::ADD, 3, pyro::ui_color::PINK, 20,
-                3, 1670, 540, 0.0f)//热量限制下允许的发弹量
-            .draw_float("remain",pyro::ui_operate::ADD, 3, pyro::ui_color::PINK, 20,
-                3, 1670, 500, 0.0f);
+            .draw_float("bullet",pyro::ui_operate::ADD, 5, pyro::ui_color::PINK, 20,
+                3, 1670, 540, 0.0f);//热量限制下允许的发弹量
 
     ui_ptr->draw_circle("F3", ui_operate::ADD, 5, ui_color::YELLOW, 1,
                        1700, 750, 30)//F3、F4表示两个摩擦轮是否开启
@@ -97,109 +105,76 @@ void ui_draw_static()
                        1580, 750, 30)
             .draw_circle("T1", ui_operate::ADD, 6, ui_color::MAGENTA, 1,
                        1820, 750, 30)//拨弹盘是否开启
-            .draw_rect("H1", ui_operate::ADD, 1, ui_color::WHITE, 3,
-            740, 300, 1100, 280);//热量条
+            .draw_line("XL1",ui_operate::ADD, 6, ui_color::YELLOW, 1,
+                        0,0,0,0)
+            .draw_line("XL2",ui_operate::ADD, 6, ui_color::YELLOW, 1,
+                        0,0,0,0);
 
     ui_ptr->flush(); // 拼包发送
 }
 
-//绘制自瞄ui
-void update_aim_ui()
+void update_shoot_ui()
 {
-    static float ui_radius = 80.0f;
-    // 记录图形是否存在 因为delete之后要先add 动态修改才用modify
-    static bool is_on_screen = false;
-    ui_color target_color = ui_color::WHITE;
+    float distance = uav_booster_ptr->get_data()->data_ctx.distance;
 
-    bool auto_aim_on = gimbal_ptr->get_data()->cmd->auto_flag;
-    bool target_locked = gimbal_ptr->get_data()->ui_ctx.is_aiming_locked;
+    ui_ptr->draw_float("distance",pyro::ui_operate::MODIFY, 4, pyro::ui_color::CYAN, 20,
+                3, 1670, 620, distance);
 
-    if (!auto_aim_on)
+    int32_t center_x = 1920 / 2; // 960
+    int32_t center_y = 1080 / 2; // 540
+
+    int32_t target_bias_x = 0;
+    int32_t target_bias_y = 0;
+
+    // ==================== 线性插值计算当前距离的偏差 ====================
+    if (distance <= ballistic_table[0].distance)
     {
-        if (is_on_screen)
+        target_bias_x = ballistic_table[0].bias_x;
+        target_bias_y = ballistic_table[0].bias_y;
+    }
+    else if (distance >= ballistic_table[TABLE_SIZE - 1].distance)
+    {
+        target_bias_x = ballistic_table[TABLE_SIZE - 1].bias_x;
+        target_bias_y = ballistic_table[TABLE_SIZE - 1].bias_y;
+    }
+    else
+    {
+        // 在表格中间，进行线性插值
+        for (size_t i = 0; i < TABLE_SIZE - 1; ++i)
         {
-            // 只有当它在屏幕上时才执行删除
-            ui_ptr->draw_circle("AIM", ui_operate::DELETE, 0, ui_color::WHITE, 0, 0, 0, 0);
-            is_on_screen = false; // 重置标记
+            if (distance >= ballistic_table[i].distance && distance <= ballistic_table[i+1].distance)
+            {
+                float t = (distance - ballistic_table[i].distance) /
+                          (ballistic_table[i+1].distance - ballistic_table[i].distance);
+
+                target_bias_x = ballistic_table[i].bias_x + static_cast<int32_t>(t * static_cast<float>(ballistic_table[i+1].bias_x - ballistic_table[i].bias_x));
+                target_bias_y = ballistic_table[i].bias_y + static_cast<int32_t>(t * static_cast<float>(ballistic_table[i+1].bias_y - ballistic_table[i].bias_y));
+                break;
+            }
         }
-        return;
     }
 
-    // 3. 动效逻辑计算
-    if (target_locked)
-    {
-        target_color = ui_color::MAGENTA;
-        if (ui_radius > 30.0f) ui_radius -= 10.0f;
-    }
-    else
-    {
-        target_color = ui_color::CYAN;
-        if (ui_radius < 60.0f) ui_radius += 5.0f;
-    }
+    // ==================== 计算最终 叉 在屏幕上的绝对像素坐标 ====================
+    center_x += target_bias_x;
+    center_y += target_bias_y;
 
-    // 4. 绘图：判断是该 ADD 还是 MODIFY
-    if (!is_on_screen)
-    {
-        // 第一次开启自瞄，必须用 ADD
-        ui_ptr->draw_circle("AIM", ui_operate::ADD, 2,
-                            target_color, 4, 960, 540, static_cast<uint16_t>(ui_radius));
-        is_on_screen = true;
-    }
-    else
-    {
-        // 图形已存在，执行平滑修改
-        ui_ptr->draw_circle("AIM", ui_operate::MODIFY, 2,
-                            target_color, 4, 960, 540, static_cast<uint16_t>(ui_radius));
-    }
-}
+    // ==================== 更新 叉 号 ====================
+    uint16_t cross_size = 12; // 叉叉的大小（像素半径）
 
-//绘制热量进度条
-void update_heat_progress_bar(float current_heat, float max_heat)
-{
-    ui_ptr->draw_float("heat_res", ui_operate::MODIFY, 2, ui_color::GREEN,20,3,
-              1080, 315, uav_booster_ptr->get_data()->shoot_data.Q_now_no_referee);
-
-    // 1. 计算比例并限幅 (0.0 ~ 1.0)
-    float ratio = (max_heat > 0.0f) ? (current_heat / max_heat) : 0.0f;
-    ratio = std::clamp(ratio, 0.0f, 1.0f);
-
-    // 2. 几何参数计算 (起点、终点)
-    const uint16_t start_x = 715;
-    const uint16_t current_end_x = start_x + static_cast<uint16_t>(300 * ratio);
-
-    // 3. 颜色切换逻辑 (根据热量状态)
-    ui_color bar_color = (ratio > 0.9f) ? ui_color::ALLY :
-                         (ratio > 0.6f) ? ui_color::ORANGE : ui_color::GREEN;
-
-    // 4. 一行 MODIFY 指令直接更新 (前提是 draw_static 里已经 ADD 过同名图形)
-    ui_ptr->draw_rect("HEAT_BAR", ui_operate::MODIFY, 1, bar_color, 3,
-                      start_x, 140, current_end_x, 230);
+    ui_ptr->draw_line("XL1", ui_operate::MODIFY, 6, ui_color::ORANGE, 3,
+                      center_x - cross_size, center_y + cross_size,
+                      center_x + cross_size, center_y - cross_size)
+           .draw_line("XL2", ui_operate::MODIFY, 6, ui_color::ORANGE, 3,
+                      center_x - cross_size, center_y - cross_size,
+                      center_x + cross_size, center_y + cross_size);
 }
 
 //绘制发射机构ui 是否开启摩擦轮 以及当前弹速
 void update_booster_ui()
 {
-    fric1_mps = uav_booster_ptr->get_data()->data_ctx.current_fric_mps[0];
-    fric2_mps = uav_booster_ptr->get_data()->data_ctx.current_fric_mps[1];
-
-    // 获取热量数据
-    float current_heat = uav_booster_ptr->get_data()->shoot_data.Q_now_no_referee;
-    float max_heat = uav_booster_ptr->get_data()->shoot_data.Q_max;
-
-    float distance = uav_booster_ptr->get_data()->data_ctx.distance;
-
     float total = uav_booster_ptr->get_data()->heat_control_ctx.allow_bullet_count;
-    float remain = uav_booster_ptr->get_data()->heat_control_ctx.now_bullet_count;
-
-    ui_ptr->draw_float("distance",pyro::ui_operate::MODIFY, 3, pyro::ui_color::CYAN, 20,
-                3, 1670, 620, distance);
-    ui_ptr->draw_float("total",pyro::ui_operate::MODIFY, 3, pyro::ui_color::CYAN, 20,
+    ui_ptr->draw_float("bullet",pyro::ui_operate::MODIFY, 5, pyro::ui_color::CYAN, 20,
                 3, 1670, 540, total);
-    ui_ptr->draw_float("remain",pyro::ui_operate::MODIFY, 3, pyro::ui_color::CYAN, 20,
-                3, 1670, 500, remain);
-
-    // 更新热量进度条
-    update_heat_progress_bar(current_heat, max_heat);
 
     if (uav_booster_ptr->get_data()->cmd->fric_enable)
     {
@@ -249,7 +224,6 @@ void ui_update_dynamic()
 
     update_booster_ui();
 
-    update_aim_ui();
 
     ui_ptr->flush();
 }
@@ -319,7 +293,6 @@ extern "C"
                     ui_draw_static();
                     vTaskDelay(pdMS_TO_TICKS(100));
 
-                    heat_bar_initialized = false;
                     flush_flag = false;
                 }
                 else

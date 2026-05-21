@@ -210,11 +210,9 @@ void booster_vt03rcmd(uint32_t notify_val)
         //把自瞄挡放这 先响应自瞄挡
         if (sw_pos_t::DOWN == vrc.switches.gear.current_pos || mouse_aiming)
         {
-            if (rx_data.fire && mouse_shooting)
+            if (rx_data.fire)
             {
                 uav_booster_cmd_ptr->trigger_enable    = true;
-                uav_booster_cmd_ptr->continue_mode     = false;
-                uav_booster_cmd_ptr->single_mode       = false;
                 uav_booster_cmd_ptr->booster_auto_flag = true;
             }
             // 防止自瞄断开时完全打不出子弹）
