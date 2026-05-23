@@ -57,7 +57,7 @@ void right_off()
 {
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, LED_OFF);
 }
-
+//亮前两个是往前
 void move_forward()
 {
     front_led_on();
@@ -65,15 +65,15 @@ void move_forward()
     left_off();
     right_on();
 }
-
+//全亮是往后
 void move_backward()
 {
-    front_led_off();
+    front_led_on();
     back_on();
-    left_off();
+    left_on();
     right_off();
 }
-
+//亮左边三个是往左
 void turn_left()
 {
     front_led_on();
@@ -81,7 +81,7 @@ void turn_left()
     left_on();
     right_off();
 }
-
+//亮右边三个是往右
 void turn_right()
 {
     front_led_on();
