@@ -5,13 +5,17 @@ extern TIM_HandleTypeDef htim2;
 
 void led_init()
 {
-    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1 | TIM_CHANNEL_3);
-    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1 | TIM_CHANNEL_3);
+    // 对于高级定时器TIM1，必须先使能MOE
+    TIM1->BDTR |= TIM_BDTR_MOE;
 
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, LED_OFF);
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, LED_OFF);
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, LED_OFF);
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, LED_OFF);
+    // 启动所有PWM通道
+   // HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1 | TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
+    // 初始化为关闭状态
+    led_off();
 }
 
 void front_led_on()
@@ -59,7 +63,7 @@ void move_forward()
     front_led_on();
     back_off();
     left_off();
-    right_off();
+    right_on();
 }
 
 void move_backward()
@@ -72,16 +76,24 @@ void move_backward()
 
 void turn_left()
 {
-    front_led_off();
-    back_off();
+    front_led_on();
+    back_on();
     left_on();
     right_off();
 }
 
 void turn_right()
 {
+    front_led_on();
+    back_on();
+    left_off();
+    right_on();
+}
+
+void led_off()
+{
     front_led_off();
     back_off();
     left_off();
-    right_on();
+    right_off();
 }

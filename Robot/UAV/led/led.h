@@ -3,8 +3,8 @@
 
 #include "tim.h"
 
-static constexpr uint16_t LED_OFF = 0;
-constexpr uint16_t LED_ON = 2750;
+static constexpr uint16_t LED_ON = 999;
+constexpr uint16_t LED_OFF = 0;
 
 void front_led_on();
 void front_led_off();
@@ -20,5 +20,6 @@ void move_forward();
 void move_backward();
 void turn_left();
 void turn_right();
+void led_off();
 
 #endif //PYRO_ROBOT_LED_H

@@ -18,7 +18,6 @@ void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::execute(uav_booster_t
         {
             // 热量满了 急停
             owner->booster_ctx.data_ctx.target_trigger_radps = 0.0f;
-            // request_switch(&owner->passive_state);
         }
     }
     else

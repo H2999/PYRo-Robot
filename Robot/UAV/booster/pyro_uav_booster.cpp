@@ -281,7 +281,7 @@ void uav_booster_t::heat_control(float current_time_ms)
 
     // 4. 将最终安全融合后的 local_heat 转换为状态机可用的可打弹数
     // 预留两发子弹，防止超频爆热量
-    float safe_q_res = booster_ctx.shoot_data.Q_max - booster_ctx.heat_control_ctx.local_heat - 24.0f;
+    float safe_q_res = booster_ctx.shoot_data.Q_max - booster_ctx.heat_control_ctx.local_heat - 26.0f;
 
     if (safe_q_res <= 0.0f)
     {
