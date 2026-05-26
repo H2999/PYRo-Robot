@@ -4,7 +4,6 @@
 #include "pyro_dr16_rc_drv.h"
 #include "pyro_vt03_rc_drv.h"
 #include "pyro_rc_base_drv.h"
-// #include <pyro_uart_message.h>
 #include <pyro_core_config.h>
 
 #include "pyro_autoaim_drv.h"
@@ -27,8 +26,7 @@ constexpr uint32_t MOUSE_ENTER_CONTINUE                = (1 << 8);
 constexpr uint32_t MOUSE_DISABLE_TRIGGER               = (1 << 9);
 constexpr uint32_t MOUSE_ENTER_AUTO                    = (1 << 10);
 constexpr uint32_t MOUSE_EXIT_AUTO                     = (1 << 11);
-constexpr uint32_t MOUSE_DISABLE_FRIC                  = (1 << 12);
-constexpr uint32_t KEY_FRIC_TOGGLE                     = (1 << 13);
+constexpr uint32_t KEY_FRIC_TOGGLE                     = (1 << 12);
 
 
 static TaskHandle_t booster_task_handle       = nullptr;
@@ -159,15 +157,15 @@ extern "C"
         }
     }
 
-void booster_vt03rcmd(uint32_t notify_val)
+    void booster_vt03rcmd(uint32_t notify_val)
     {
         read_scope_lock lock(vt03_drv_t::get_lock());
         const auto &vrc = rc_drv_t::read();
 
+        // 1. 挂起/被动模式处理
         if (sw_pos_t::UP == vrc.switches.gear.current_pos)
         {
             uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
-
             uav_booster_cmd_ptr->fric_enable = false;
             uav_booster_cmd_ptr->trigger_enable = false;
             uav_booster_cmd_ptr->single_mode = false;
@@ -178,22 +176,25 @@ void booster_vt03rcmd(uint32_t notify_val)
 
         uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
         uav_booster_cmd_ptr->single_mode = false;
+        // uav_booster_cmd_ptr->booster_auto_flag = false;
 
-        //存储鼠标状态
+        // 2. 存储和更新鼠标自瞄状态
         static bool mouse_aiming = false;
-
         if (notify_val & MOUSE_ENTER_AUTO) mouse_aiming = true;
-        if (notify_val & MOUSE_EXIT_AUTO)  mouse_aiming = false;
+        if (notify_val & MOUSE_EXIT_AUTO)
+        {
+            mouse_aiming = false;
+            uav_booster_cmd_ptr->fric_enable = false;
+        }
 
-
+        // 3. 摩擦轮开关控制 (增加右键松开自动关摩擦轮的处理)
         if (notify_val & VT03_FRIC_TOGGLE || notify_val & KEY_FRIC_TOGGLE)
         {
             uav_booster_cmd_ptr->fric_enable = !uav_booster_cmd_ptr->fric_enable;
         }
-
-        //auto_mode用来给后面控制热量用
         uav_booster_cmd_ptr->auto_mode = mouse_aiming;
 
+        // 安全检查：摩擦轮没开，断开所有供弹使能
         if (!uav_booster_cmd_ptr->fric_enable)
         {
             uav_booster_cmd_ptr->trigger_enable    = false;
@@ -203,33 +204,26 @@ void booster_vt03rcmd(uint32_t notify_val)
             return;
         }
 
-        //把自瞄挡放前 先响应自瞄挡
-        //把自瞄挡放前 先响应自瞄挡
+        // 4. 核心分挡逻辑 (使用 else if 严格互斥，优先自瞄/右键长按)
         if (sw_pos_t::DOWN == vrc.switches.gear.current_pos || mouse_aiming)
         {
-            // 1. 捕获开始连发事件
+            // 进入自瞄挡，单发无效
+            uav_booster_cmd_ptr->single_mode = false;
+
+            // 捕获开始连发事件
             if (notify_val & MOUSE_ENTER_CONTINUE || notify_val & VT03_TRIGGER_CONTINUE)
             {
-                uav_booster_cmd_ptr->continue_mode     = true;
-                uav_booster_cmd_ptr->single_mode       = false; // 连发排斥单发
+                uav_booster_cmd_ptr->continue_mode = true;
             }
 
-            // 2. 捕获单发事件
-            if ((notify_val & VT03_TRIGGER_SINGLE) || (notify_val & MOUSE_SINGLE))
-            {
-                uav_booster_cmd_ptr->single_mode       = true;
-                uav_booster_cmd_ptr->continue_mode     = false; // 单发排斥连发
-            }
-
-            // 3. 捕获松开按键的停止事件
+            // 捕获松开按键的停止事件
             if (notify_val & VT03_TRIGGER_DISABLE || notify_val & MOUSE_DISABLE_TRIGGER)
             {
-                uav_booster_cmd_ptr->continue_mode     = false;
-                uav_booster_cmd_ptr->single_mode       = false;
+                uav_booster_cmd_ptr->continue_mode = false;
             }
 
-            // 4. 实时更新自瞄开火标志
-            if (rx_data.fire)
+            // 实时更新自瞄开火标志：没有手动连发时，才允许自瞄控制
+            if (rx_data.fire && !uav_booster_cmd_ptr->continue_mode)
             {
                 uav_booster_cmd_ptr->booster_auto_flag = true;
             }
@@ -238,10 +232,8 @@ void booster_vt03rcmd(uint32_t notify_val)
                 uav_booster_cmd_ptr->booster_auto_flag = false;
             }
 
-            // 5. 只要手动连发、单发、自瞄开火中任意一个满足，就持续保持发射总使能
-            if (uav_booster_cmd_ptr->continue_mode ||
-                uav_booster_cmd_ptr->single_mode   ||
-                uav_booster_cmd_ptr->booster_auto_flag)
+            // 综合输出总拨弹使能
+            if (uav_booster_cmd_ptr->continue_mode || uav_booster_cmd_ptr->booster_auto_flag)
             {
                 uav_booster_cmd_ptr->trigger_enable = true;
             }
@@ -250,9 +242,13 @@ void booster_vt03rcmd(uint32_t notify_val)
                 uav_booster_cmd_ptr->trigger_enable = false;
             }
         }
-
-        if (sw_pos_t::MID == vrc.switches.gear.current_pos)
+        else if (sw_pos_t::MID == vrc.switches.gear.current_pos)
         {
+            // 退出自瞄挡，清除自瞄标志
+            uav_booster_cmd_ptr->booster_auto_flag = false;
+            uav_booster_cmd_ptr->single_mode = false;
+
+            // 捕获单发事件
             if ((notify_val & VT03_TRIGGER_SINGLE) || (notify_val & MOUSE_SINGLE))
             {
                 uav_booster_cmd_ptr->trigger_enable = true;
@@ -260,20 +256,25 @@ void booster_vt03rcmd(uint32_t notify_val)
                 uav_booster_cmd_ptr->continue_mode = false;
             }
 
+            // 捕获连发事件
             if (notify_val & VT03_TRIGGER_CONTINUE || notify_val & MOUSE_ENTER_CONTINUE)
             {
                 uav_booster_cmd_ptr->trigger_enable = true;
                 uav_booster_cmd_ptr->continue_mode = true;
-                // uav_booster_cmd_ptr->booster_auto_flag = true;
+                uav_booster_cmd_ptr->single_mode   = false;
             }
 
+            // 捕获停止事件 (只有在未触发新的单发时，才允许清除单发标志)
             if (notify_val & VT03_TRIGGER_DISABLE || notify_val & MOUSE_DISABLE_TRIGGER)
             {
                 uav_booster_cmd_ptr->trigger_enable = false;
-                uav_booster_cmd_ptr->single_mode = false;
                 uav_booster_cmd_ptr->continue_mode = false;
-                // uav_booster_cmd_ptr->booster_auto_flag = false;
+                uav_booster_cmd_ptr->single_mode   = false;
             }
+        }
+        else
+        {
+            uav_booster_cmd_ptr->booster_auto_flag = false;
         }
     }
 
@@ -281,11 +282,8 @@ void booster_vt03rcmd(uint32_t notify_val)
     {
         while (true)
         {
-            //在ui上显示
-            uav_booster_ptr->get_data()->data_ctx.distance = rx_data.shoot_dist;
-
             uint32_t notify_val = 0;
-            xTaskNotifyWait(0x00, 0xFFFFFFFF, &notify_val, 0);
+            xTaskNotifyWait(0x00, 0xFFFFFFFF, &notify_val,pdMS_TO_TICKS(2));
 
             if (dr16_drv_t::instance().check_online())
             {
@@ -329,7 +327,6 @@ void booster_vt03rcmd(uint32_t notify_val)
         btn_broker::subscribe(&vrc.buttons.press_l, btn_event_t::PRESS_UP,booster_task_handle , MOUSE_DISABLE_TRIGGER);
         btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::LONG_PRESS_START,booster_task_handle , MOUSE_ENTER_AUTO);
         btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::PRESS_UP,booster_task_handle , MOUSE_EXIT_AUTO);
-        btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::PRESS_UP,booster_task_handle , MOUSE_DISABLE_FRIC);
 
 
         vTaskDelete(nullptr);

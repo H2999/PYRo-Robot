@@ -27,7 +27,7 @@ void update_and_send_feedback()
     tx_data.curr_yaw    = angle[0];
     tx_data.curr_pitch  = - angle[1];
     tx_data.curr_roll   = angle[2];
-    tx_data.curr_speed  = 23.0f;
+    tx_data.curr_speed  = uav_booster_ptr->get_data()->shoot_data.now_bullet_speed_mps;
 
     tx_data.shoot_delay = 0;
     tx_data.state       = 0;

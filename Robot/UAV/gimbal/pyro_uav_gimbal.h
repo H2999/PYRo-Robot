@@ -58,11 +58,6 @@ struct uav_gimbal_cfg_t
 
         pid_t *pitch_position_pid_leso{nullptr};
         pid_t *pitch_speed_pid_leso{nullptr};
-
-        pid_t *yaw_position_pid_tower{nullptr};
-        pid_t *yaw_speed_pid_tower{nullptr};
-        pid_t *pitch_position_pid_tower{nullptr};
-        pid_t *pitch_speed_pid_tower{nullptr};
     };
 
     motor_ctx_t motor_ctx;

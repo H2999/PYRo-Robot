@@ -116,7 +116,7 @@ void uav_booster_t::speed_control()
     if (booster_ctx.shoot_data.last_bullet_speed_mps != booster_ctx.shoot_data.now_bullet_speed_mps)
     {
         float speed_error = booster_ctx.shoot_data.target_bullet_speed - booster_ctx.shoot_data.now_bullet_speed_mps;
-        if (abs(speed_error) < 0.35f)
+        if (abs(speed_error) < 0.33f)
         {
             booster_ctx.shoot_data.speed_increment = 0.0f;
         }

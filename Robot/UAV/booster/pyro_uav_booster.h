@@ -128,7 +128,6 @@ private:
         float accumulated_rad_shoot_delay{};
 
         float last_shot_time_ms{};
-        float distance{};
     };
 
     struct heat_control_t

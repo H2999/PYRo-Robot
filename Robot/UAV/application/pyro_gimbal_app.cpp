@@ -18,7 +18,7 @@ extern autoaim_drv_t::rx_data_t rx_data;
 
 static uint32_t KEY_CTRL                = (1 << 0);
 static uint32_t KEY_SHIFT               = (1 << 1);
-static uint32_t KEY_S_ON                   = (1 << 2);
+static uint32_t KEY_S                   = (1 << 2);
 static uint32_t MOUSE_ENTER_AIM         = (1 << 3);
 static uint32_t MOUSE_EXIT_AIM          = (1 << 4);
 
@@ -100,18 +100,18 @@ void gimbalvt03cmd(uint32_t notify_val)
         gimbal_cmd_ptr->pitch_target_angle = rx_data.shoot_pitch;
 
         gimbal_cmd_ptr->pitch_delta_angle =
-            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.15f;
+            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.25f;
         gimbal_cmd_ptr->yaw_delta_angle =
-            -vrc.axes.rx * 0.0015f - vrc.mouse_axes.x * 0.2f;
+            -vrc.axes.rx * 0.0015f - vrc.mouse_axes.x * 0.25f;
     }
     else if (sw_pos_t::MID == vrc.switches.gear.current_pos)
     {
         gimbal_cmd_ptr->auto_flag = false;
 
         gimbal_cmd_ptr->pitch_delta_angle =
-            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.04f;
+            -vrc.axes.ry * 0.0015f - vrc.mouse_axes.y * 0.1f;
         gimbal_cmd_ptr->yaw_delta_angle =
-            -vrc.axes.rx * 0.0015f - vrc.mouse_axes.x * 0.12f;
+            -vrc.axes.rx * 0.0015f - vrc.mouse_axes.x * 0.15f;
     }
 }
 
@@ -149,7 +149,7 @@ void uav_gimbal_init(void *argument)
 
     btn_broker::subscribe(&vrc.keys.ctrl, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_CTRL);
     btn_broker::subscribe(&vrc.keys.shift, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_SHIFT);
-    btn_broker::subscribe(&vrc.keys.s, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_S_ON);
+    btn_broker::subscribe(&vrc.keys.s, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_S);
 
     btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::PRESS_UP,gimbal_task_handle , MOUSE_EXIT_AIM);
     btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::LONG_PRESS_START,gimbal_task_handle , MOUSE_ENTER_AIM);

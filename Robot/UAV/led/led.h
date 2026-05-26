@@ -21,5 +21,6 @@ void move_backward();
 void turn_left();
 void turn_right();
 void led_off();
+void led_on();
 
 #endif //PYRO_ROBOT_LED_H
