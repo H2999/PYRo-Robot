@@ -25,7 +25,7 @@ struct uav_gimbal_cmd_t final : cmd_base_t
     float yaw_target_angle{};
 
     uav_gimbal_cmd_t()
-    :yaw_delta_angle() , pitch_delta_angle(0),auto_flag(false),is_tower(false)
+    :yaw_delta_angle() , pitch_delta_angle(0),auto_flag(false),is_tower(true)
     {
     }
 };
@@ -168,6 +168,8 @@ private:
 
         float kalman_yaw_v{};
         float kalman_pitch_v{};
+
+        uint8_t is_tower{true};
     };
 
     struct ui_ctx_t

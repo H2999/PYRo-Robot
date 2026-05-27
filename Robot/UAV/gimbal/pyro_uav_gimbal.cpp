@@ -85,6 +85,7 @@ status_t uav_gimbal_t::_init()
 void uav_gimbal_t::_update_feedback()
 {
     gimbal_ctx.auto_ctx.auto_enable = gimbal_ctx.cmd->auto_flag;
+    gimbal_ctx.auto_ctx.is_tower    = gimbal_ctx.cmd->is_tower;
 
     gimbal_ctx.cfg.motor_ctx.yaw_motor->update_feedback();
     gimbal_ctx.cfg.motor_ctx.pitch_motor->update_feedback();

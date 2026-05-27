@@ -21,6 +21,7 @@ static uint32_t KEY_SHIFT               = (1 << 1);
 static uint32_t KEY_S                   = (1 << 2);
 static uint32_t MOUSE_ENTER_AIM         = (1 << 3);
 static uint32_t MOUSE_EXIT_AIM          = (1 << 4);
+static uint32_t AIM_TOWER_TOGGLE        = (1 << 5);
 
 static TaskHandle_t gimbal_task_handle       = nullptr;
 static constexpr float rc_sensitivity = 0.0025f;
@@ -80,6 +81,11 @@ void gimbalvt03cmd(uint32_t notify_val)
     if (notify_val & MOUSE_EXIT_AIM)
     {
         mouse_aiming = false;
+    }
+
+    if (notify_val & AIM_TOWER_TOGGLE)
+    {
+        gimbal_cmd_ptr->is_tower = !gimbal_cmd_ptr->is_tower;
     }
 
     if (sw_pos_t::UP == vrc.switches.gear.current_pos)
@@ -153,6 +159,8 @@ void uav_gimbal_init(void *argument)
 
     btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::PRESS_UP,gimbal_task_handle , MOUSE_EXIT_AIM);
     btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::LONG_PRESS_START,gimbal_task_handle , MOUSE_ENTER_AIM);
+
+    btn_broker::subscribe(&vrc.keys.v,btn_event_t::PRESS_DOWN,gimbal_task_handle , AIM_TOWER_TOGGLE);
 
     vTaskDelete(nullptr);
 }
