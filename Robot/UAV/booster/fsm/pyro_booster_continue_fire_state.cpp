@@ -12,7 +12,7 @@ void uav_booster_t::fsm_active_t::shoot_continue_bullet_t::execute(uav_booster_t
     {
         if (owner->booster_ctx.heat_control_ctx.allow_bullet_count > 0)
         {
-            owner->booster_ctx.data_ctx.target_trigger_radps = 6.0f;
+            owner->booster_ctx.data_ctx.target_trigger_radps = 8.0f;
         }
         else
         {

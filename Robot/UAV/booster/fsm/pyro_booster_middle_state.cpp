@@ -20,12 +20,12 @@ void uav_booster_t::fsm_active_t::state_middle_t::execute(uav_booster_t *owner)
     {
         if (owner->booster_ctx.cmd->trigger_enable)
         {
-            if (!owner->booster_ctx.shoot_data.is_reset_finished)
-            {
-                request_switch(&owner->active_state.reset_state);
-            }
-            else
-            {
+            // if (!owner->booster_ctx.shoot_data.is_reset_finished)
+            // {
+            //     request_switch(&owner->active_state.reset_state);
+            // }
+            // else
+            // {
                 if (owner->booster_ctx.cmd->single_mode)
                 {
                     request_switch(&owner->active_state.single_state);
@@ -40,7 +40,7 @@ void uav_booster_t::fsm_active_t::state_middle_t::execute(uav_booster_t *owner)
                 {
                     request_switch(&owner->active_state.auto_aim_state);
                 }
-            }
+            // }
         }
     }
 

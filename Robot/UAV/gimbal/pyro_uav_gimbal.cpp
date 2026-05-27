@@ -51,23 +51,24 @@ status_t uav_gimbal_t::_init()
     gimbal_ctx.cfg.pid_ctx.pitch_speed_pid = new pid_t(1.2f,0.007f,0.0f,1.2f,
                 7.0f,80,20,4);
 
-    //自瞄pid
-    // gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(20.5f,0.0f,0.003f,0.8f,
-    //    10.0f);
-    // gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(1.1f,0.08f,0.0002f,1.0f,3.0f);
-    //
-    // gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(22.8f,0.0f,0.001f,0.8f,
-    //             9.0f);
-    // gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(0.65f,0.0f,0.00055f,0.8f,
-    //             7.0f);
-
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(19.5f,0.0f,0.0025f,0.8f,
+    //前哨站
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid_tower = new pid_t(19.8f,0.0f,0.0025f,0.8f,
     8.0f);
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(1.0f,0.08f,0.0002f,1.0f,3.0f);
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid_tower = new pid_t(1.0f,0.08f,0.0002f,1.0f,3.0f);
 
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(20.5f,0.0f,0.001f,0.8f,
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid_tower = new pid_t(21.5f,0.0f,0.001f,0.8f,
                 8.0f);
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(0.58f,0.0f,0.00055f,0.8f,
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid_tower = new pid_t(0.6f,0.0f,0.00055f,0.8f,
+                7.0f);
+
+    //打车pid
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.6f,0.0f,0.0025f,0.8f,
+    10.0f);
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(1.25f,0.08f,0.0002f,1.0f,3.0f);
+
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(23.8f,0.0f,0.001f,0.8f,
+                8.0f);
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(0.7f,0.0f,0.00055f,0.8f,
                 7.0f);
 
     //测试LESO
@@ -75,7 +76,6 @@ status_t uav_gimbal_t::_init()
                 10.0f);
     gimbal_ctx.cfg.pid_ctx.yaw_speed_pid_leso = new pid_t(1.0f,0.0f,0.0f,0.0f,
                 3.0f);
-
     gimbal_ctx.cfg.pid_ctx.pitch_position_pid_leso = new pid_t(12.5f, 0.0f, 0.018f, 0.0f, 8.0f);
     gimbal_ctx.cfg.pid_ctx.pitch_speed_pid_leso = new pid_t(1.6f, 0.0f, 0.0005f, 1.2f, 7.0f);
 
@@ -135,8 +135,6 @@ void uav_gimbal_t::_fsm_execute()
 
 void uav_gimbal_t::rc_gimbal_control(gimbal_ctx_t *ctx)
 {
-    // float observed_disturbance = ctx->yaw_leso->get_disturbance();
-
     float yaw_ff = ctx->cmd->yaw_delta_angle / control_dt * yaw_k_ff;
 
     ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.yaw_position_pid->calculate
@@ -168,18 +166,8 @@ void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
     td_calculate(&ctx->yaw_td,ctx->data._target_yaw_angle);
     td_calculate(&ctx->pitch_td,ctx->data._target_pitch_angle);
 
-    if (abs(ctx->auto_ctx.kalman_yaw_v) < 0.001f)
-    {
-        ctx->auto_ctx.kalman_yaw_v = 0.0f;
-    }
-    if (abs(ctx->auto_ctx.kalman_pitch_v) < 0.005f)
-    {
-        ctx->auto_ctx.kalman_pitch_v = 0.0f;
-    }
-
-    float yaw_ff = ctx->yaw_td.x2 * 0.05f;
-    // float pitch_ff = ctx->pitch_td.x2 * 1.4f;
-    float pitch_ff = ctx->pitch_td.x2 * 0.5f;
+    float yaw_ff = ctx->yaw_td.x2 * auto_yaw_kff;
+    float pitch_ff = ctx->pitch_td.x2 * auto_pitch_kff;
 
     //加0.01后 在阶跃信号为0.2rad的情况下 基本跟上
     ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.auto_yaw_position_pid->calculate(
@@ -194,6 +182,30 @@ void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
     //0.92是让pitch读取到的imu数据为0时的力矩 再乘上角度cos就能得到要补偿的重力大小
     ctx->data.gravity_compensate = -0.92f * cosf(ctx->data._current_imu_pitch_angle);
     ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.auto_pitch_speed_pid->calculate(
+        ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed) + ctx->data.gravity_compensate;
+}
+
+void uav_gimbal_t::auto_aim_gimbal_control_tower(gimbal_ctx_t *ctx)
+{
+    td_calculate(&ctx->yaw_td,ctx->data._target_yaw_angle);
+    td_calculate(&ctx->pitch_td,ctx->data._target_pitch_angle);
+
+    float yaw_ff = ctx->yaw_td.x2 * auto_yaw_tower_kff;
+    float pitch_ff = ctx->pitch_td.x2 * auto_pitch_tower_kff;
+
+    //加0.01后 在阶跃信号为0.2rad的情况下 基本跟上
+    ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.auto_yaw_position_pid_tower->calculate(
+            ctx->yaw_td.x1,  ctx->data._current_imu_yaw_angle) + yaw_ff;
+
+    ctx->data._output_yaw_torque = - ctx->cfg.pid_ctx.auto_yaw_speed_pid_tower->calculate(
+            ctx->data._target_yaw_speed, ctx->data._current_imu_yaw_speed);
+
+    ctx->data._target_pitch_speed = ctx->cfg.pid_ctx.auto_pitch_position_pid_tower->calculate(
+             ctx->pitch_td.x1, ctx->data._current_imu_pitch_angle) + pitch_ff;
+
+    //0.92是让pitch读取到的imu数据为0时的力矩 再乘上角度cos就能得到要补偿的重力大小
+    ctx->data.gravity_compensate = -0.92f * cosf(ctx->data._current_imu_pitch_angle);
+    ctx->data._output_pitch_torque = ctx->cfg.pid_ctx.auto_pitch_speed_pid_tower->calculate(
         ctx->data._target_pitch_speed,ctx->data._current_imu_pitch_speed) + ctx->data.gravity_compensate;
 }
 

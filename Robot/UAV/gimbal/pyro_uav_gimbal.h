@@ -20,11 +20,12 @@ struct uav_gimbal_cmd_t final : cmd_base_t
     float pitch_delta_angle;    //pitch轴目标角度
 
     uint8_t auto_flag{};
+    uint8_t is_tower{};
     float pitch_target_angle{};
     float yaw_target_angle{};
 
     uav_gimbal_cmd_t()
-    :yaw_delta_angle() , pitch_delta_angle(0)
+    :yaw_delta_angle() , pitch_delta_angle(0),auto_flag(false),is_tower(false)
     {
     }
 };
@@ -55,14 +56,13 @@ struct uav_gimbal_cfg_t
 
         pid_t *yaw_position_pid_leso{nullptr};
         pid_t *yaw_speed_pid_leso{nullptr};
-
         pid_t *pitch_position_pid_leso{nullptr};
         pid_t *pitch_speed_pid_leso{nullptr};
 
-        pid_t *yaw_position_pid_tower{nullptr};
-        pid_t *yaw_speed_pid_tower{nullptr};
-        pid_t *pitch_position_pid_tower{nullptr};
-        pid_t *pitch_speed_pid_tower{nullptr};
+        pid_t *auto_yaw_position_pid_tower{nullptr};
+        pid_t *auto_yaw_speed_pid_tower{nullptr};
+        pid_t *auto_pitch_position_pid_tower{nullptr};
+        pid_t *auto_pitch_speed_pid_tower{nullptr};
     };
 
     motor_ctx_t motor_ctx;
@@ -99,6 +99,7 @@ private:
     //派生方法
     static void rc_gimbal_control(gimbal_ctx_t *ctx);
     static void auto_aim_gimbal_control(gimbal_ctx_t *ctx);
+    static void auto_aim_gimbal_control_tower(gimbal_ctx_t *ctx);
     static void send_motor_command(const gimbal_ctx_t *ctx);
     static void normalize_angle(float& angle);
     static void td_calculate(TD_t *td, float target);
