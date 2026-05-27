@@ -16,15 +16,24 @@ namespace pyro
 //命令定义
 struct uav_gimbal_cmd_t final : cmd_base_t
 {
-    float yaw_delta_angle;      //yaw轴目标角度
-    float pitch_delta_angle;    //pitch轴目标角度
+    enum class auto_aim_target_t : uint8_t
+    {
+        CAR = 0,    // 打车
+        TOWER       // 前哨站
+    };
+
+    float yaw_delta_angle;      // yaw轴目标角度
+    float pitch_delta_angle;    // pitch轴目标角度
 
     uint8_t auto_flag{};
     float pitch_target_angle{};
     float yaw_target_angle{};
 
+    // ======= 新增：自瞄目标实体变量，并设置默认值为 CAR =======
+    auto_aim_target_t auto_aim_target{auto_aim_target_t::TOWER};
+
     uav_gimbal_cmd_t()
-    :yaw_delta_angle() , pitch_delta_angle(0)
+    : yaw_delta_angle(0.0f), pitch_delta_angle(0.0f), auto_flag(false), auto_aim_target(auto_aim_target_t::TOWER)
     {
     }
 };
@@ -59,10 +68,10 @@ struct uav_gimbal_cfg_t
         pid_t *pitch_position_pid_leso{nullptr};
         pid_t *pitch_speed_pid_leso{nullptr};
 
-        pid_t *yaw_position_pid_tower{nullptr};
-        pid_t *yaw_speed_pid_tower{nullptr};
-        pid_t *pitch_position_pid_tower{nullptr};
-        pid_t *pitch_speed_pid_tower{nullptr};
+        pid_t *auto_yaw_position_pid_tower{nullptr};
+        pid_t *auto_yaw_speed_pid_tower{nullptr};
+        pid_t *auto_pitch_position_pid_tower{nullptr};
+        pid_t *auto_pitch_speed_pid_tower{nullptr};
     };
 
     motor_ctx_t motor_ctx;
@@ -99,6 +108,7 @@ private:
     //派生方法
     static void rc_gimbal_control(gimbal_ctx_t *ctx);
     static void auto_aim_gimbal_control(gimbal_ctx_t *ctx);
+    static void auto_aim_gimbal_control_car(gimbal_ctx_t *ctx);
     static void send_motor_command(const gimbal_ctx_t *ctx);
     static void normalize_angle(float& angle);
     static void td_calculate(TD_t *td, float target);

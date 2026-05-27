@@ -18,7 +18,7 @@ extern autoaim_drv_t::rx_data_t rx_data;
 
 static uint32_t KEY_CTRL                = (1 << 0);
 static uint32_t KEY_SHIFT               = (1 << 1);
-static uint32_t KEY_S                   = (1 << 2);
+static uint32_t KEY_V                   = (1 << 2);
 static uint32_t MOUSE_ENTER_AIM         = (1 << 3);
 static uint32_t MOUSE_EXIT_AIM          = (1 << 4);
 
@@ -80,6 +80,20 @@ void gimbalvt03cmd(uint32_t notify_val)
     if (notify_val & MOUSE_EXIT_AIM)
     {
         mouse_aiming = false;
+    }
+
+    if (notify_val & KEY_V)
+    {
+        using target_type = uav_gimbal_cmd_t::auto_aim_target_t;
+
+        if (gimbal_cmd_ptr->auto_aim_target == target_type::CAR)
+        {
+            gimbal_cmd_ptr->auto_aim_target = target_type::TOWER;
+        }
+        else
+        {
+            gimbal_cmd_ptr->auto_aim_target = target_type::CAR;
+        }
     }
 
     if (sw_pos_t::UP == vrc.switches.gear.current_pos)
@@ -149,7 +163,7 @@ void uav_gimbal_init(void *argument)
 
     btn_broker::subscribe(&vrc.keys.ctrl, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_CTRL);
     btn_broker::subscribe(&vrc.keys.shift, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_SHIFT);
-    btn_broker::subscribe(&vrc.keys.s, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_S);
+    btn_broker::subscribe(&vrc.keys.v, btn_event_t::PRESS_DOWN, gimbal_task_handle, KEY_V);
 
     btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::PRESS_UP,gimbal_task_handle , MOUSE_EXIT_AIM);
     btn_broker::subscribe(&vrc.buttons.press_r, btn_event_t::LONG_PRESS_START,gimbal_task_handle , MOUSE_ENTER_AIM);
