@@ -194,16 +194,6 @@ extern "C"
         }
         uav_booster_cmd_ptr->auto_mode = mouse_aiming;
 
-        // 安全检查：摩擦轮没开，断开所有供弹使能
-        if (!uav_booster_cmd_ptr->fric_enable)
-        {
-            uav_booster_cmd_ptr->trigger_enable    = false;
-            uav_booster_cmd_ptr->single_mode       = false;
-            uav_booster_cmd_ptr->continue_mode     = false;
-            uav_booster_cmd_ptr->booster_auto_flag = false;
-            return;
-        }
-
         // 4. 核心分挡逻辑 (使用 else if 严格互斥，优先自瞄/右键长按)
         if (sw_pos_t::DOWN == vrc.switches.gear.current_pos || mouse_aiming)
         {
@@ -275,6 +265,16 @@ extern "C"
         else
         {
             uav_booster_cmd_ptr->booster_auto_flag = false;
+        }
+
+        // 安全检查：摩擦轮没开，断开所有供弹使能
+        if (!uav_booster_cmd_ptr->fric_enable)
+        {
+            uav_booster_cmd_ptr->trigger_enable    = false;
+            uav_booster_cmd_ptr->single_mode       = false;
+            uav_booster_cmd_ptr->continue_mode     = false;
+            uav_booster_cmd_ptr->booster_auto_flag = false;
+            return;
         }
     }
 

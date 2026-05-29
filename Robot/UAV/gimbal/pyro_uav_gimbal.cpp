@@ -62,13 +62,13 @@ status_t uav_gimbal_t::_init()
                 7.0f);
 
     //打车pid
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(22.6f,0.0f,0.0025f,0.8f,
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_position_pid = new pid_t(17.8f,0.0f,0.0025f,0.8f,
     10.0f);
-    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(1.25f,0.08f,0.0002f,1.0f,3.0f);
+    gimbal_ctx.cfg.pid_ctx.auto_yaw_speed_pid = new pid_t(0.8f,0.08f,0.0002f,1.0f,3.0f);
 
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(23.8f,0.0f,0.001f,0.8f,
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_position_pid = new pid_t(19.5f,0.0f,0.001f,0.8f,
                 8.0f);
-    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(0.7f,0.0f,0.00055f,0.8f,
+    gimbal_ctx.cfg.pid_ctx.auto_pitch_speed_pid = new pid_t(0.58f,0.0f,0.00055f,0.8f,
                 7.0f);
 
     //测试LESO
@@ -170,7 +170,7 @@ void uav_gimbal_t::auto_aim_gimbal_control(gimbal_ctx_t *ctx)
     td_calculate(&ctx->pitch_td,ctx->data._target_pitch_angle);
 
     float yaw_ff = ctx->yaw_td.x2 * 0.05f;
-    float pitch_ff = ctx->pitch_td.x2 * 0.5f;
+    float pitch_ff = ctx->pitch_td.x2 * 0.55f;
 
     //加0.01后 在阶跃信号为0.2rad的情况下 基本跟上
     ctx->data._target_yaw_speed = ctx->cfg.pid_ctx.auto_yaw_position_pid_tower->calculate(
@@ -193,7 +193,7 @@ void uav_gimbal_t::auto_aim_gimbal_control_car(gimbal_ctx_t *ctx)
     td_calculate(&ctx->yaw_td,ctx->data._target_yaw_angle);
     td_calculate(&ctx->pitch_td,ctx->data._target_pitch_angle);
 
-    float yaw_ff = ctx->yaw_td.x2 * 0.2f;
+    float yaw_ff = ctx->yaw_td.x2 * 0.22f;
     float pitch_ff = ctx->pitch_td.x2 * 1.7f;
 
     //加0.01后 在阶跃信号为0.2rad的情况下 基本跟上

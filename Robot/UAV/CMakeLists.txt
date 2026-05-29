@@ -6,7 +6,6 @@ add_library(UAV OBJECT
         application/pyro_ui_app.cpp
         led/led.cpp
         led/led.h
-        application/ui/pyro_ui_com.h
 )
 target_sources(UAV
         PRIVATE
@@ -34,7 +33,6 @@ target_sources(UAV
         gimbal/fsm/pyro_passive_state.cpp
         gimbal/feedforward_kf/forecast_v.cpp
         led/led.cpp
-        application/ui/pyro_ui_com.cpp
 )
 
 target_include_directories(UAV

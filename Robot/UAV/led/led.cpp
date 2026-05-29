@@ -16,7 +16,7 @@ void led_init()
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    GPIO_InitStruct.Alternate = GPIO_AF1_TIM1;  // STM32H7 系列需要确认 AF 编号
+    GPIO_InitStruct.Alternate = GPIO_AF1_TIM1;
     HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
     // TIM1 高级定时器配置
@@ -34,10 +34,10 @@ void led_init()
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
 
     // 设置占空比
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, LED_ON);
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, LED_ON);
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, LED_ON);
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, LED_ON);
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, LED_OFF);
+    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, LED_OFF);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, LED_OFF);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, LED_OFF);
 
     // 调试：强制输出高电平测试
     HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, GPIO_PIN_SET);
@@ -46,88 +46,20 @@ void led_init()
 
 void front_led_on()
 {
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, LED_ON);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, LED_ON);
 }
 
 void front_led_off()
 {
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, LED_OFF);
+    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, LED_OFF);
 }
 
-void back_on()
-{
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, LED_ON);
-}
-
-void back_off()
-{
-    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, LED_OFF);
-}
-
-void left_on()
-{
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, LED_ON);
-}
-
-void left_off()
-{
-    __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, LED_OFF);
-}
-
-void right_on()
+void back_led_on()
 {
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, LED_ON);
 }
 
-void right_off()
+void back_led_off()
 {
     __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, LED_OFF);
-}
-//亮前两个是往前
-void move_forward()
-{
-    front_led_on();
-    back_off();
-    left_off();
-    right_on();
-}
-//全亮是往后
-void move_backward()
-{
-    front_led_on();
-    back_on();
-    left_on();
-    right_off();
-}
-//亮左边三个是往左
-void turn_left()
-{
-    front_led_on();
-    back_on();
-    left_on();
-    right_off();
-}
-//亮右边三个是往右
-void turn_right()
-{
-    front_led_on();
-    back_on();
-    left_off();
-    right_on();
-}
-
-void led_off()
-{
-    front_led_off();
-    back_off();
-    left_off();
-    right_off();
-}
-
-void led_on()
-{
-    front_led_on();
-    back_on();
-    left_on();
-    right_on();
 }

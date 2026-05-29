@@ -7,6 +7,8 @@
 #include "pyro_uav_gimbal.h"
 #include "pyro_vt03_rc_drv.h"
 #include "led.h"
+#include "FreeRTOS.h"
+#include "timers.h"
 #include <cmath>
 
 #include "pyro_autoaim_drv.h"
@@ -20,7 +22,11 @@ static ui_drv_t *ui_ptr           = nullptr;
 extern uav_booster_t *uav_booster_ptr;
 extern uav_gimbal_t *gimbal_ptr;
 extern autoaim_drv_t::rx_data_t rx_data;
+extern autoaim_drv_t::tx_data_t tx_data;
 
+static bool s_blinking = false;
+static TickType_t s_last_toggle_time = 0;
+constexpr TickType_t BLINK_INTERVAL_MS = 200;   // 闪烁间隔 200ms
 
 static TaskHandle_t ui_task_handle = nullptr;
 
@@ -35,10 +41,8 @@ struct ui_context_t {
     bool fric_enable = false;
     bool trigger_enable = false;
 
-    bool key_w_pressed = false;
-    bool key_a_pressed = false;
-    bool key_s_pressed = false;
-    bool key_d_pressed = false;
+    uav_gimbal_cmd_t::auto_aim_target_t auto_aim_target
+            = uav_gimbal_cmd_t::auto_aim_target_t::TOWER;
 
     bool refresh_request = false; // 手动强制刷新标志
 };
@@ -47,19 +51,14 @@ struct ui_context_t {
 static ui_context_t g_ctx;           // 当前最新数据缓冲区
 static ui_context_t g_last_ctx;      // 上一次渲染的数据缓冲区
 static bool g_force_refresh = false; // 全局静态图层重构标记
-
 // 按键控制掩码
 static uint32_t KEY_CTRL                           = (1 << 0);
 static uint32_t KEY_SHIFT                          = (1 << 1);
 static uint32_t KEY_Z                              = (1 << 2);
 static uint32_t KEY_W_ON                           = (1 << 3);
-static uint32_t KEY_A_ON                           = (1 << 4);
-static uint32_t KEY_S_ON                           = (1 << 5);
-static uint32_t KEY_D_ON                           = (1 << 6);
-static uint32_t KEY_W_OFF                          = (1 << 7);
-static uint32_t KEY_A_OFF                          = (1 << 8);
-static uint32_t KEY_S_OFF                          = (1 << 9);
-static uint32_t KEY_D_OFF                          = (1 << 10);
+static uint32_t KEY_S_ON                           = (1 << 4);
+static uint32_t KEY_W_OFF                          = (1 << 5);
+static uint32_t KEY_S_OFF                          = (1 << 6);
 
 // 2. 弹道插值配置表 用来画无自瞄时候的瞄准基准
 struct BallisticPoint {
@@ -105,18 +104,20 @@ void ui_draw_static()
                                         20, 4, 1540, 540, "BULLET:");
     ui_ptr->draw_string("LB4", pyro::ui_operate::ADD, 2, pyro::ui_color::GREEN,
                                         20, 3, 750, 280, "HEAT:");
-    ui_ptr->draw_string("LB5", pyro::ui_operate::ADD, 2, pyro::ui_color::YELLOW,
-                                        20, 3, 980, 280, "RES:");
     ui_ptr->flush();
     //操控状态/按键静态占位
     ui_ptr->draw_string("KW_", pyro::ui_operate::ADD, 3, pyro::ui_color::WHITE,
                                         30, 3, 960, 900, "W");
-    ui_ptr->draw_string("KA_", pyro::ui_operate::ADD, 3, pyro::ui_color::WHITE,
-                                        30, 3, 880, 840, "A");
     ui_ptr->draw_string("KS_", pyro::ui_operate::ADD, 3, pyro::ui_color::WHITE,
                                         30, 3, 960, 780, "S");
-    ui_ptr->draw_string("KD_", pyro::ui_operate::ADD, 3, pyro::ui_color::WHITE,
-                                        30, 3, 1040, 840, "D");
+
+    ui_ptr->draw_string("tower", pyro::ui_operate::ADD, 3, pyro::ui_color::GREEN,
+                                        30, 3, 1540, 480, "T");
+    ui_ptr->draw_string("car", pyro::ui_operate::ADD, 3, pyro::ui_color::ORANGE,
+                                        30, 3, 1740, 480, "C");
+    ui_ptr->draw_float("FT1", pyro::ui_operate::ADD, 3, pyro::ui_color::GREEN, 20, 3, 1600, 480, 0.0f)
+          .draw_float("FC1", pyro::ui_operate::ADD, 3, pyro::ui_color::ORANGE, 20, 3, 1800, 480, 0.0f);
+
     ui_ptr->draw_circle("F3", ui_operate::ADD, 3, ui_color::WHITE, 1, 1700, 750, 10) //开启的话空心圆被填满
            .draw_circle("F4", ui_operate::ADD, 3, ui_color::WHITE, 1, 1580, 750, 10)
            .draw_circle("T1", ui_operate::ADD, 3, ui_color::WHITE, 1, 1820, 750, 10);
@@ -233,31 +234,27 @@ void update_booster_ui()
     }
 }
 
-void update_keyboard_ui()
+void update_aim_mode_ui()
 {
-    // W 键状态更新
-    if (g_ctx.key_w_pressed != g_last_ctx.key_w_pressed || g_force_refresh)
+    // 只有自瞄目标发生切换，或者收到强刷请求时才操作裁判系统带宽
+    if (g_ctx.auto_aim_target != g_last_ctx.auto_aim_target || g_force_refresh)
     {
-        pyro::ui_color color = g_ctx.key_w_pressed ? pyro::ui_color::GREEN : pyro::ui_color::WHITE;
-        ui_ptr->draw_string("KW_", pyro::ui_operate::MODIFY, 3, color, 30, 5, 960, 900, "W");
-    }
-    // A 键状态更新
-    if (g_ctx.key_a_pressed != g_last_ctx.key_a_pressed || g_force_refresh)
-    {
-        pyro::ui_color color = g_ctx.key_a_pressed ? pyro::ui_color::GREEN : pyro::ui_color::WHITE;
-        ui_ptr->draw_string("KA_", pyro::ui_operate::MODIFY, 3, color, 30, 5, 880, 840, "A");
-    }
-    // S 键状态更新
-    if (g_ctx.key_s_pressed != g_last_ctx.key_s_pressed || g_force_refresh)
-    {
-        pyro::ui_color color = g_ctx.key_s_pressed ? pyro::ui_color::GREEN : pyro::ui_color::WHITE;
-        ui_ptr->draw_string("KS_", pyro::ui_operate::MODIFY, 3, color, 30, 5, 960, 780, "S");
-    }
-    // D 键状态更新
-    if (g_ctx.key_d_pressed != g_last_ctx.key_d_pressed || g_force_refresh)
-    {
-        pyro::ui_color color = g_ctx.key_d_pressed ? pyro::ui_color::GREEN : pyro::ui_color::WHITE;
-        ui_ptr->draw_string("KD_", pyro::ui_operate::MODIFY, 3, color, 30, 5, 1040, 840, "D");
+        using target_type = uav_gimbal_cmd_t::auto_aim_target_t;
+
+        if (g_ctx.auto_aim_target == target_type::TOWER)
+        {
+            // 前哨站模式：将 FT1 (前哨站指示器) 数值设为 1.0f 激活，FC1 (打车) 设为 0.0f 熄灭
+            ui_ptr->draw_float("FT1", pyro::ui_operate::MODIFY, 3, pyro::ui_color::GREEN, 20, 5, 1600, 480, 1.0f);
+            ui_ptr->draw_float("FC1", pyro::ui_operate::MODIFY, 3, pyro::ui_color::WHITE, 20, 1, 1800, 480, 0.0f);
+            tx_data.state = 1;
+        }
+        else
+        {
+            // 打车模式：将 FC1 (打车指示器) 数值设为 1.0f 激活，FT1 (前哨站) 设为 0.0f 熄灭
+            ui_ptr->draw_float("FT1", pyro::ui_operate::MODIFY, 3, pyro::ui_color::WHITE, 20, 1, 1600, 480, 0.0f);
+            ui_ptr->draw_float("FC1", pyro::ui_operate::MODIFY, 3, pyro::ui_color::ORANGE, 20, 5, 1800, 480, 1.0f);
+            tx_data.state = 0;
+        }
     }
 }
 
@@ -267,25 +264,76 @@ void ui_update_dynamic()
     update_gimbal_ui();
     update_booster_ui();
     update_shoot_ui();
-    update_keyboard_ui();
+    update_aim_mode_ui();
 
     ui_ptr->flush(); // 统一在最末尾进行图层合并冲刷
     g_force_refresh = false; // 清除强刷标志
 }
 
-static void info_context_collect()
+void info_context_collect()
 {
-    //循环比较
+    // 循环比较
     g_last_ctx = g_ctx;
 
-    //实时获取数据
+    // 实时获取常规数据（建议对 booster 也做一下类似的安全防御）
     g_ctx.distance       = rx_data.shoot_dist;
-    g_ctx.allow_bullet   = uav_booster_ptr->get_data()->heat_control_ctx.allow_bullet_count;
-    g_ctx.fric_enable    = uav_booster_ptr->get_data()->cmd->fric_enable;
-    g_ctx.trigger_enable = uav_booster_ptr->get_data()->cmd->trigger_enable;
-    g_ctx.yaw            = gimbal_ptr->get_data()->data._current_imu_yaw_angle;
-    g_ctx.pitch          = gimbal_ptr->get_data()->data._current_imu_pitch_angle;
-    g_ctx.heat_max       = uav_booster_ptr->get_data()->shoot_data.Q_max;
+
+    if (uav_booster_ptr && uav_booster_ptr->get_data())
+    {
+        g_ctx.allow_bullet   = uav_booster_ptr->get_data()->heat_control_ctx.allow_bullet_count;
+        g_ctx.fric_enable    = uav_booster_ptr->get_data()->cmd ? uav_booster_ptr->get_data()->cmd->fric_enable : false;
+        g_ctx.trigger_enable = uav_booster_ptr->get_data()->cmd ? uav_booster_ptr->get_data()->cmd->trigger_enable : false;
+        g_ctx.heat_max       = uav_booster_ptr->get_data()->shoot_data.Q_max;
+    }
+
+    if (gimbal_ptr && gimbal_ptr->get_data())
+    {
+        g_ctx.yaw   = gimbal_ptr->get_data()->data._current_imu_yaw_angle;
+        g_ctx.pitch = gimbal_ptr->get_data()->data._current_imu_pitch_angle;
+
+        // 只有当底层命令指针 cmd 确实存在时，才同步自瞄目标状态
+        if (gimbal_ptr->get_data()->cmd)
+        {
+            g_ctx.auto_aim_target = gimbal_ptr->get_data()->cmd->auto_aim_target;
+        }
+    }
+}
+
+void vt03_control(uint32_t notify_val)
+{
+    read_scope_lock lock(vt03_drv_t::get_lock());
+
+    if (notify_val & KEY_SHIFT)
+    {
+        g_ctx.refresh_request = true;
+    }
+
+    // 处理 W 键：按下亮，松开灭
+    if (notify_val & KEY_W_ON)
+    {
+        front_led_on();
+        ui_ptr->draw_string("KW_", pyro::ui_operate::MODIFY, 3, pyro::ui_color::GREEN,
+                                        30, 3, 960, 900, "W");
+    }
+    if (notify_val & KEY_W_OFF)
+    {
+        front_led_off();
+        ui_ptr->draw_string("KW_", pyro::ui_operate::MODIFY, 3, pyro::ui_color::WHITE,
+                                        30, 3, 960, 900, "W");
+    }
+
+    if (notify_val & KEY_S_ON)
+    {
+        s_blinking = true;
+        s_last_toggle_time = xTaskGetTickCount();
+        front_led_on();                     // 按下瞬间点亮
+    }
+
+    if (notify_val & KEY_S_OFF)
+    {
+        s_blinking = false;
+        front_led_off();                    // 松开立即熄灭
+    }
 }
 
 // 彻底清空画布并重建
@@ -299,46 +347,7 @@ void ui_global_refresh()
     ui_update_dynamic();
 }
 
-void vt03_control(uint32_t notify_val)
-{
-    read_scope_lock lock(vt03_drv_t::get_lock());
 
-    if (notify_val & KEY_SHIFT)
-    {
-        g_ctx.refresh_request = true; // 触发手动刷新请求
-    }
-    if (notify_val & KEY_W_ON)
-    {
-        g_ctx.key_w_pressed = true;
-        move_forward();
-    }
-    if (notify_val & KEY_A_ON)
-    {
-        g_ctx.key_a_pressed = true;
-        turn_left();
-    }
-    if (notify_val & KEY_S_ON)
-    {
-        g_ctx.key_s_pressed = true;
-        move_backward();
-    }
-    if (notify_val & KEY_D_ON)
-    {
-        g_ctx.key_d_pressed = true;
-        turn_right();
-    }
-
-    if (notify_val & KEY_W_OFF) g_ctx.key_w_pressed = false;
-    if (notify_val & KEY_A_OFF) g_ctx.key_a_pressed = false;
-    if (notify_val & KEY_S_OFF) g_ctx.key_s_pressed = false;
-    if (notify_val & KEY_D_OFF) g_ctx.key_d_pressed = false;
-
-    if ((notify_val & KEY_W_OFF) || (notify_val & KEY_A_OFF)
-        || (notify_val & KEY_S_OFF) || (notify_val & KEY_D_OFF))
-    {
-        led_off();
-    }
-}
 
     // 6. FreeRTOS UI 核心执行线程
     void uav_ui_thread(void *argument)
@@ -372,6 +381,22 @@ void vt03_control(uint32_t notify_val)
             {
                 info_context_collect(); // 填充 g_ctx
 
+                // 处理 S 键闪烁
+                if (s_blinking)
+                {
+                    TickType_t now = xTaskGetTickCount();
+                    if ((now - s_last_toggle_time) >= pdMS_TO_TICKS(BLINK_INTERVAL_MS))
+                    {
+                        static bool led_state = true;
+                        led_state = !led_state;
+                        if (led_state)
+                            front_led_on();
+                        else
+                            front_led_off();
+                        s_last_toggle_time = now;
+                    }
+                }
+
                 // 判断是否按下了 Shift 键发起了强刷或者从小电脑收到了重构命令
                 if (g_ctx.refresh_request != g_last_ctx.refresh_request || g_ctx.refresh_request == true)
                 {
@@ -404,15 +429,11 @@ extern "C"
         btn_broker::subscribe(&vrc.keys.z,     btn_event_t::PRESS_DOWN, ui_task_handle, KEY_Z);
 
         // 灯珠指示绑定
-        btn_broker::subscribe(&vrc.keys.w, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_W_ON);
-        btn_broker::subscribe(&vrc.keys.a, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_A_ON);
-        btn_broker::subscribe(&vrc.keys.s, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_S_ON);
-        btn_broker::subscribe(&vrc.keys.d, btn_event_t::LONG_PRESS_START, ui_task_handle, KEY_D_ON);
+        btn_broker::subscribe(&vrc.keys.w, btn_event_t::PRESS_DOWN, ui_task_handle, KEY_W_ON);
+        btn_broker::subscribe(&vrc.keys.s, btn_event_t::PRESS_DOWN, ui_task_handle, KEY_S_ON);
 
         btn_broker::subscribe(&vrc.keys.w, btn_event_t::PRESS_UP, ui_task_handle, KEY_W_OFF);
-        btn_broker::subscribe(&vrc.keys.a, btn_event_t::PRESS_UP, ui_task_handle, KEY_A_OFF);
         btn_broker::subscribe(&vrc.keys.s, btn_event_t::PRESS_UP, ui_task_handle, KEY_S_OFF);
-        btn_broker::subscribe(&vrc.keys.d, btn_event_t::PRESS_UP, ui_task_handle, KEY_D_OFF);
 
         vTaskDelete(nullptr);
     }

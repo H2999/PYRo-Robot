@@ -12,12 +12,13 @@ static TaskHandle_t uav_autoaim_app_handle = nullptr;
 static autoaim_drv_t *autoaim_drv_ptr = nullptr;
 
 autoaim_drv_t::rx_data_t rx_data{};
+autoaim_drv_t::tx_data_t tx_data{};
 static uint8_t enemy_color = 0;
 
 void update_and_send_feedback()
 {
     if (gimbal_ptr == nullptr) return;
-    auto& tx_data = autoaim_drv_ptr->get_tx_data();
+    autoaim_drv_ptr->get_tx_data() = tx_data;
 
     //yaw pitch roll
     float angle[3];
@@ -30,7 +31,6 @@ void update_and_send_feedback()
     tx_data.curr_speed  = uav_booster_ptr->get_data()->shoot_data.now_bullet_speed_mps;
 
     tx_data.shoot_delay = 0;
-    tx_data.state       = 0;
     tx_data.autoaim     = 1;
     const uint8_t robot_id = uav_booster_ptr->get_robot_id();
     if (robot_id > 100)
