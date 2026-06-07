@@ -28,7 +28,8 @@ constexpr uint32_t MOUSE_ENTER_AUTO                    = (1 << 10);
 constexpr uint32_t MOUSE_EXIT_AUTO                     = (1 << 11);
 constexpr uint32_t KEY_FRIC_TOGGLE                     = (1 << 12);
 
-
+static uint8_t last_state{};
+static uint8_t now_state{};
 static TaskHandle_t booster_task_handle       = nullptr;
 uav_booster_t *uav_booster_ptr                = nullptr;
 static uav_booster_cmd_t *uav_booster_cmd_ptr = nullptr;
@@ -176,7 +177,6 @@ extern "C"
 
         uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::ACTIVE;
         uav_booster_cmd_ptr->single_mode = false;
-        // uav_booster_cmd_ptr->booster_auto_flag = false;
 
         // 2. 存储和更新鼠标自瞄状态
         static bool mouse_aiming = false;
@@ -184,7 +184,7 @@ extern "C"
         if (notify_val & MOUSE_EXIT_AUTO)
         {
             mouse_aiming = false;
-            uav_booster_cmd_ptr->fric_enable = false;
+            // uav_booster_cmd_ptr->fric_enable = false;
         }
 
         // 3. 摩擦轮开关控制 (增加右键松开自动关摩擦轮的处理)
@@ -285,13 +285,33 @@ extern "C"
             uint32_t notify_val = 0;
             xTaskNotifyWait(0x00, 0xFFFFFFFF, &notify_val,pdMS_TO_TICKS(2));
 
-            if (dr16_drv_t::instance().check_online())
+            last_state = now_state;
+            now_state = uav_booster_ptr->get_data()->shoot_data.power_management_booster;
+
+
+            if (!last_state && now_state)
             {
-                booster_dr16rcmd(notify_val);
+                vTaskDelay(1000);
             }
-            else if (vt03_drv_t::instance().check_online())
+
+            if (now_state)
             {
-                booster_vt03rcmd(notify_val);
+                if (dr16_drv_t::instance().check_online())
+                {
+                    booster_dr16rcmd(notify_val);
+                }
+                else if (vt03_drv_t::instance().check_online())
+                {
+                    booster_vt03rcmd(notify_val);
+                }
+                else
+                {
+                    uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
+                }
+            }
+            else
+            {
+                uav_booster_cmd_ptr->mode = cmd_base_t::mode_t::PASSIVE;
             }
 
             uav_booster_ptr->set_command(*uav_booster_cmd_ptr);

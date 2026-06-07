@@ -1,3 +1,4 @@
+#include "pyro_dm_motor_drv.h"
 #include "pyro_dwt_drv.h"
 #include "pyro_uav_booster.h"
 

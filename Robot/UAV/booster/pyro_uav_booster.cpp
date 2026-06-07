@@ -23,9 +23,9 @@ status_t uav_booster_t::_init()
 
     //摩擦轮pid初始化
     booster_ctx.cfg.pid_cfg.fric_pid[0] = new pid_t(8.0f, 0.0f, 0.007f,1.0f,
-       20);
+       10);
     booster_ctx.cfg.pid_cfg.fric_pid[1] = new pid_t(7.6f, 0.0f, 0.007f,1.0f,
-        20);
+        10);
 
     //拨弹盘pid初始化
     booster_ctx.cfg.pid_cfg.trigger_position_pid =
@@ -76,6 +76,7 @@ void uav_booster_t::_update_feedback()
     booster_ctx.shoot_data.Q_max                = booster_ctx.referee_ctx.referee_data.robot_status.shooter_barrel_heat_limit;
     booster_ctx.shoot_data.Q_cd                 = booster_ctx.referee_ctx.referee_data.robot_status.shooter_barrel_cooling_value;
     booster_ctx.shoot_data.launching_frequency  = booster_ctx.referee_ctx.referee_data.shoot.launching_frequency;
+    // booster_ctx.shoot_data.power_management_booster = booster_ctx.referee_ctx.referee_data.robot_status.power_management_shooter_output;
 
     // 更新反馈
     booster_ctx.cfg.motor_cfg.fric_wheel[0]->update_feedback();

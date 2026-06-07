@@ -179,6 +179,7 @@ private:
         bool is_shooting_locked{};
         int16_t bullet_quota{};
         int16_t bullets_shot_in_burst{};
+        uint8_t power_management_booster{};
     };
 
     struct referee_ctx_t

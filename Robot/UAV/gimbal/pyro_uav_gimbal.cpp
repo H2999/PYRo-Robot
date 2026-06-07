@@ -26,7 +26,7 @@ status_t uav_gimbal_t::_init()
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_rotate_range(-30, 30);
     static_cast<dm_motor_drv_t *>(gimbal_ctx.cfg.motor_ctx.pitch_motor)->set_torque_range(-7, 7);
 
-    gimbal_ctx.yaw_td.r = 3000.0f;   // 根据响应速度调整 响应慢的话调大到 600-800 计算公式 比如目标角度变了0.1° 我想让云台在50ms内跟上这个变化
+    gimbal_ctx.yaw_td.r = 5800.0f;   // 根据响应速度调整 响应慢的话调大到 600-800 计算公式 比如目标角度变了0.1° 我想让云台在50ms内跟上这个变化
                                     // 0.1 = 1/2 * r * （0.05）² 但要克服阻力 惯性等因素 所以要给大一点
     gimbal_ctx.yaw_td.h = 0.002f;   // 滤波因子，一般设为 5~10 倍 dt 响应慢的话可以适当调小
     gimbal_ctx.yaw_td.dt = 0.001f;  //控制周期

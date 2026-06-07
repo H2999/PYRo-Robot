@@ -167,6 +167,8 @@ private:
 
         float current_yaw_raw_rad{};
         float current_pitch_raw_rad{};
+
+
     };
 
     struct gimbal_auto_ctx_t
